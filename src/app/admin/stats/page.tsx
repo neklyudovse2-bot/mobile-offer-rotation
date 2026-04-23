@@ -9,8 +9,6 @@ export default async function StatsPage() {
   if (!(await isAdminAuthenticated())) return <Login />;
 
   const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
-  const lastSyncDate = lastSyncRes[0]?.last_sync;
-
   const stats = await sql`
      SELECT s.* FROM keitaro_stats s 
      WHERE s.synced_at = (SELECT MAX(synced_at) FROM keitaro_stats)
@@ -26,9 +24,7 @@ export default async function StatsPage() {
   const appsStats = [];
   for (const app of APP_MAPPING) {
     const appOffers: any[] = [];
-    
-    // Получаем текущие позиции из Firestore
-    let fsPositions: any = {};
+    let fsData: any = {};
     if (firestore) {
       const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans').get();
       snapshot.docs.forEach(doc => {
@@ -39,7 +35,9 @@ export default async function StatsPage() {
             const urlObj = new URL(url);
             slug = urlObj.searchParams.get('aff_sub3') || ''; 
         } catch(e) {}
-        if (slug) fsPositions[slug] = data[app.sortField];
+        // Если слага нет, используем ID документа как ключ
+        const key = slug || doc.id;
+        fsData[key] = { pos: data[app.sortField], title: data.title || doc.id, slug };
       });
     }
 
@@ -47,32 +45,37 @@ export default async function StatsPage() {
     const appOverrides = overrides.filter((o: any) => o.app_id === app.appId);
     const appConfig = appOverrides.find((o: any) => o.offer_slug === 'SYSTEM_DEFAULT');
 
-    // Собираем уникальные слаги из статистики и Firestore
-    const allSlugs = new Set([...appStats.map((s: any) => s.offer_slug), ...Object.keys(fsPositions)]);
+    const allKeys = new Set([...appStats.map((s: any) => s.offer_slug), ...Object.keys(fsData)]);
 
-    allSlugs.forEach(slug => {
-      if (!slug) return;
-      const row = appStats.find((s: any) => s.offer_slug === slug);
-      const or = appOverrides.find((o: any) => o.offer_slug === slug);
-      const gEpc = globalEpc.find((e: any) => e.offer_slug === slug)?.epc || 0;
-      const pEpc = perAppEpc.find((e: any) => e.app_name === app.name && e.offer_slug === slug)?.epc || 0;
+    allKeys.forEach(key => {
+      if (!key) return;
+      const row = appStats.find((s: any) => s.offer_slug === key);
+      const or = appOverrides.find((o: any) => o.offer_slug === key);
+      const gEpc = globalEpc.find((e: any) => e.offer_slug === key)?.epc || 0;
+      const pEpc = perAppEpc.find((e: any) => e.app_name === app.name && e.offer_slug === key)?.epc || 0;
+      const fs = fsData[key];
 
       appOffers.push({
-        slug,
+        slug: key,
+        displayName: fs?.title || key,
         clicks: row?.clicks || 0,
         conversions: row?.conversions || 0,
         revenue: row?.revenue || 0,
         globalEpc: gEpc,
         perAppEpc: pEpc,
-        currentPos: fsPositions[slug] || '?',
+        currentPos: fs?.pos || '?',
         isActive: or ? or.is_active : true,
         pinned: or ? or.pinned_position : null,
-        epcMode: appConfig ? appConfig.epc_mode : 'global'
+        epcMode: appConfig ? appConfig.epc_mode : 'global',
+        hasSlug: !!(fs?.slug || row?.offer_slug)
       });
     });
 
-    // Сортируем для красоты по доходности приложения
-    appOffers.sort((a, b) => b.perAppEpc - a.perAppEpc);
+    appOffers.sort((a, b) => {
+        if (a.hasSlug && !b.hasSlug) return -1;
+        if (!a.hasSlug && b.hasSlug) return 1;
+        return b.perAppEpc - a.perAppEpc;
+    });
 
     appsStats.push({ ...app, appOffers, epcMode: appConfig ? appConfig.epc_mode : 'global' });
   }
@@ -88,14 +91,12 @@ export default async function StatsPage() {
             <div key={app.appId} className="border border-gray-100 rounded shadow-sm overflow-hidden">
               <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
                 <h2 className="text-xl font-bold uppercase">{app.name} <span className="text-gray-400 font-normal">({app.appId})</span></h2>
-                <span className="text-xs bg-black text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
-                  Режим: {app.epcMode}
-                </span>
+                <span className="text-xs bg-black text-white px-2 py-1 rounded font-bold uppercase tracking-wider">Режим: {app.epcMode}</span>
               </div>
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-gray-100 uppercase text-[10px] text-gray-400 font-black tracking-widest">
-                    <th className="px-6 py-4">Slug</th>
+                    <th className="px-6 py-4">Оффер (Slug/Title)</th>
                     <th className="px-6 py-4">Клики</th>
                     <th className="px-6 py-4">Конв.</th>
                     <th className="px-6 py-4">Revenue</th>
@@ -108,7 +109,10 @@ export default async function StatsPage() {
                 <tbody className="divide-y divide-gray-50">
                   {app.appOffers.map((o: any) => (
                     <tr key={o.slug} className={`hover:bg-gray-50 ${!o.isActive ? 'opacity-40 grayscale' : ''}`}>
-                      <td className="px-6 py-4 font-bold">{o.slug} {o.pinned && <span className="text-blue-600 ml-1">📌 {o.pinned}</span>}</td>
+                      <td className="px-6 py-4 font-bold">
+                        {o.displayName} {!o.hasSlug && <span className="text-[9px] text-gray-400 border border-gray-200 px-1 ml-1 rounded">NO SLUG</span>}
+                        {o.pinned && <span className="text-blue-600 ml-1">📌 {o.pinned}</span>}
+                      </td>
                       <td className="px-6 py-4 font-mono">{o.clicks}</td>
                       <td className="px-6 py-4 font-mono">{o.conversions}</td>
                       <td className="px-6 py-4 font-mono text-green-700">{o.revenue}</td>

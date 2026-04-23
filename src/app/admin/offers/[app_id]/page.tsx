@@ -32,12 +32,17 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
           const urlObj = new URL(url);
           slug = urlObj.searchParams.get('aff_sub3') || ''; 
       } catch(e) {}
-      const ov = overrides.find((o: any) => o.offer_slug === slug);
+      
+      const key = slug || doc.id;
+      const ov = overrides.find((o: any) => o.offer_slug === key);
+      
       return {
-        slug,
+        slug: key,
+        displayName: data.title || doc.id,
         currentPos: data[app.sortField],
         isActive: ov ? ov.is_active : true,
-        pinnedPos: ov ? ov.pinned_position : null
+        pinnedPos: ov ? ov.pinned_position : null,
+        hasSlug: !!slug
       };
     });
   }

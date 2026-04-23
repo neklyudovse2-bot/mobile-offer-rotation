@@ -72,7 +72,9 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           <tbody className="divide-y divide-gray-50">
             {offers.map((o: any) => (
               <tr key={o.slug} className={!o.isActive ? 'bg-gray-50 opacity-60' : ''}>
-                <td className="px-6 py-4 font-bold">{o.slug}</td>
+                <td className="px-6 py-4 font-bold">
+                  {o.displayName} {!o.hasSlug && <span className="text-[9px] text-gray-400 border border-gray-200 px-1 ml-1 rounded">NO SLUG</span>}
+                </td>
                 <td className="px-6 py-4 font-mono text-blue-600">#{o.currentPos}</td>
                 <td className="px-6 py-4">
                   <input 
