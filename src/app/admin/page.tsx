@@ -4,13 +4,14 @@ import { APP_MAPPING } from '@/config/mapping';
 import { sql } from '@/lib/db';
 import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
+import RecalculateButton from '@/components/RecalculateButton';
 
 export default async function AdminPage() {
   let authenticated = false;
   let errorMsg = '';
 
   try {
-    authenticated = isAdminAuthenticated();
+    authenticated = await isAdminAuthenticated();
   } catch (e: any) {
     errorMsg = e.message;
   }
@@ -40,7 +41,7 @@ export default async function AdminPage() {
   const appsData = [];
 
   for (const app of APP_MAPPING) {
-    let topOffers = [];
+    let topOffers: Array<{slug: string, pos: number}> = [];
     if (firestore) {
       const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans')
         .orderBy(app.sortField)
@@ -79,7 +80,7 @@ export default async function AdminPage() {
             
             <div className="mb-6 space-y-2">
               <p className="text-[10px] uppercase text-gray-400 font-bold">Top 3 Оффера</p>
-              {app.topOffers.length > 0 ? app.topOffers.map((o: any) => (
+              {app.topOffers.length > 0 ? app.topOffers.map((o) => (
                 <div key={o.slug} className="flex justify-between text-sm py-1">
                   <span className="font-medium">{o.slug}</span>
                   <span className="text-blue-600 font-mono">#{o.pos}</span>
@@ -95,8 +96,6 @@ export default async function AdminPage() {
         ))}
       </div>
 
-import RecalculateButton from '@/components/RecalculateButton';
-...
       <div className="bg-gray-50 border border-gray-100 rounded-lg p-8 text-center">
         <h3 className="text-lg font-bold mb-2">Общая ротация</h3>
         <p className="text-gray-500 text-sm mb-6 max-w-md mx-auto">Запуск этого процесса немедленно обновит Firestore для всех приложений на основе последних данных Keitaro.</p>

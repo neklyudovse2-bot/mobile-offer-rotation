@@ -6,7 +6,7 @@ import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
 
 export default async function StatsPage() {
-  if (!isAdminAuthenticated()) return <Login />;
+  if (!(await isAdminAuthenticated())) return <Login />;
 
   const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
   const lastSyncDate = lastSyncRes[0]?.last_sync;
@@ -34,7 +34,11 @@ export default async function StatsPage() {
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         let slug = '';
-        try { slug = new URL(data.url).searchParams.get('aff_sub3') || ''; } catch(e) {}
+        try { 
+            const url = data.url || '';
+            const urlObj = new URL(url);
+            slug = urlObj.searchParams.get('aff_sub3') || ''; 
+        } catch(e) {}
         if (slug) fsPositions[slug] = data[app.sortField];
       });
     }

@@ -6,10 +6,13 @@ import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
 import OfferSettings from '@/components/OfferSettings';
 
-export default async function AppSettingsPage({ params }: { params: { app_id: string } }) {
-  if (!isAdminAuthenticated()) return <Login />;
+type Params = Promise<{ app_id: string }>;
 
-  const app = APP_MAPPING.find(a => a.appId === params.app_id);
+export default async function AppSettingsPage({ params }: { params: Params }) {
+  if (!(await isAdminAuthenticated())) return <Login />;
+
+  const { app_id } = await params;
+  const app = APP_MAPPING.find(a => a.appId === app_id);
   if (!app) return <div>App not found</div>;
 
   const overrides = await sql`SELECT offer_slug, is_active, pinned_position, epc_mode FROM offer_overrides WHERE app_id = ${app.appId}`;
@@ -24,7 +27,11 @@ export default async function AppSettingsPage({ params }: { params: { app_id: st
     initialOffers = snapshot.docs.map(doc => {
       const data = doc.data();
       let slug = '';
-      try { slug = new URL(data.url).searchParams.get('aff_sub3') || ''; } catch(e) {}
+      try { 
+          const url = data.url || '';
+          const urlObj = new URL(url);
+          slug = urlObj.searchParams.get('aff_sub3') || ''; 
+      } catch(e) {}
       const ov = overrides.find((o: any) => o.offer_slug === slug);
       return {
         slug,

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 
-export function isAdminAuthenticated() {
-  const cookieStore = cookies();
+export async function isAdminAuthenticated() {
+  const cookieStore = await cookies();
   const password = process.env.ADMIN_PASSWORD;
   
   if (!password) {

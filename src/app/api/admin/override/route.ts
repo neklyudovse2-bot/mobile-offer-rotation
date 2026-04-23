@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { sql } from '@/lib/db';
 
 export async function POST(request: Request) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const password = process.env.ADMIN_PASSWORD;
   
   if (!password) {
