@@ -4,9 +4,9 @@ import { APP_MAPPING } from '@/config/mapping';
 import { DateTime } from 'luxon';
 
 export async function GET() {
-  const apiKey = process.env.KEITARO_API_KEY;
-  const baseUrl = process.env.KEITARO_URL;
-  const timezone = process.env.KEITARO_TIMEZONE || 'Asia/Yekaterinburg';
+  const apiKey = (process.env.KEITARO_API_KEY || '').trim();
+  const baseUrl = (process.env.KEITARO_URL || '').trim();
+  const timezone = (process.env.KEITARO_TIMEZONE || 'Asia/Yekaterinburg').trim();
 
   const to = DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd');
   const from = DateTime.now().setZone(timezone).minus({ days: 10 }).toFormat('yyyy-MM-dd');
@@ -19,7 +19,7 @@ export async function GET() {
     for (const app of APP_MAPPING) {
       const url = `${baseUrl}/admin_api/v1/report/build`;
       const headers = {
-        'Api-Key': apiKey!,
+        'Api-Key': apiKey,
         'Content-Type': 'application/json'
       };
       const body = {
@@ -29,11 +29,6 @@ export async function GET() {
         filters: [{ name: 'campaign_id', operator: 'equals', expression: app.campaignId.toString() }]
       };
 
-      console.log('--- Keitaro API Request Debug ---');
-      console.log('URL:', url);
-      console.log('Headers:', JSON.stringify(headers));
-      console.log('Body:', JSON.stringify(body));
-
       const response = await fetch(url, {
         method: 'POST',
         headers: headers,
@@ -42,7 +37,6 @@ export async function GET() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Keitaro API Error Response [${response.status}]:`, errorText);
         throw new Error(`Keitaro API error for ${app.name}: ${errorText}`);
       }
 
