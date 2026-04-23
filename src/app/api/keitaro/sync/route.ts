@@ -8,8 +8,8 @@ export async function GET() {
   const baseUrl = (process.env.KEITARO_URL || '').trim();
   const timezone = (process.env.KEITARO_TIMEZONE || 'Asia/Yekaterinburg').trim();
 
-  const to = DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd');
-  const from = DateTime.now().setZone(timezone).minus({ days: 10 }).toFormat('yyyy-MM-dd');
+  const to = '2026-04-23';
+  const from = '2026-04-14';
 
   try {
     const timestamp = new Date().toISOString();
