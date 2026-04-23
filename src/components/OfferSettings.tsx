@@ -12,18 +12,25 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
     setSaving(true);
     await fetch('/api/admin/override', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ app_id: app.appId, epc_mode: mode })
     });
     setSaving(false);
   };
 
-  const updateOffer = async (slug: string, fields: any) => {
+  const updateOffer = async (slug: string, docId: string, fields: any) => {
     const updated = offers.map((o: any) => o.slug === slug ? { ...o, ...fields } : o);
     setOffers(updated);
     setSaving(true);
     await fetch('/api/admin/override', {
       method: 'POST',
-      body: JSON.stringify({ app_id: app.appId, offer_slug: slug, ...fields })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+          app_id: app.appId, 
+          offer_slug: slug, 
+          doc_id: docId, 
+          ...fields 
+      })
     });
     setSaving(false);
   };
@@ -55,7 +62,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           disabled={saving}
           className="px-6 py-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 disabled:opacity-50"
         >
-          {saving ? 'Сохранение...' : 'Пересчитать сейчас'}
+          {saving ? 'Выполнение...' : 'Пересчитать сейчас'}
         </button>
       </div>
 
@@ -63,10 +70,10 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest">
-              <th className="px-6 py-4">Slug</th>
+              <th className="px-6 py-4">Оффер (Title)</th>
               <th className="px-6 py-4">Текущая Поз.</th>
-              <th className="px-6 py-4">Активен</th>
-              <th className="px-6 py-4">Pin Позиция</th>
+              <th className="px-6 py-4 text-center">Активен</th>
+              <th className="px-6 py-4 text-center">Pin Позиция</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -76,20 +83,20 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
                   {o.displayName} {!o.hasSlug && <span className="text-[9px] text-gray-400 border border-gray-200 px-1 ml-1 rounded">NO SLUG</span>}
                 </td>
                 <td className="px-6 py-4 font-mono text-blue-600">#{o.currentPos}</td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 text-center">
                   <input 
                     type="checkbox" 
                     checked={o.isActive} 
-                    onChange={(e) => updateOffer(o.slug, { is_active: e.target.checked })}
-                    className="w-5 h-5 rounded border-gray-300 text-blue-600"
+                    onChange={(e) => updateOffer(o.slug, o.docId, { is_active: e.target.checked })}
+                    className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
                   />
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 text-center">
                   <input 
                     type="number" 
                     placeholder="None"
                     value={o.pinnedPos || ''}
-                    onChange={(e) => updateOffer(o.slug, { pinned_position: e.target.value ? parseInt(e.target.value) : null })}
+                    onChange={(e) => updateOffer(o.slug, o.docId, { pinned_position: e.target.value ? parseInt(e.target.value) : null })}
                     className="p-2 border border-gray-200 rounded w-20 text-center font-mono"
                   />
                 </td>

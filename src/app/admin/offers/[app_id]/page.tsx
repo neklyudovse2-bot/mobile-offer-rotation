@@ -15,7 +15,7 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
   const app = APP_MAPPING.find(a => a.appId === app_id);
   if (!app) return <div>App not found</div>;
 
-  const overrides = await sql`SELECT offer_slug, is_active, pinned_position, epc_mode FROM offer_overrides WHERE app_id = ${app.appId}`;
+  const overrides = await sql`SELECT offer_slug, pinned_position, epc_mode FROM offer_overrides WHERE app_id = ${app.appId}`;
   const appConfig = overrides.find((o: any) => o.offer_slug === 'SYSTEM_DEFAULT');
 
   let firestore;
@@ -38,9 +38,10 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
       
       return {
         slug: key,
+        docId: doc.id, // Передаем ID документа для обновлений
         displayName: data.title || doc.id,
         currentPos: data[app.sortField],
-        isActive: ov ? ov.is_active : true,
+        isActive: data.active !== false, // Источник правды - Firestore
         pinnedPos: ov ? ov.pinned_position : null,
         hasSlug: !!slug
       };

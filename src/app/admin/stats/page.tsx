@@ -16,7 +16,7 @@ export default async function StatsPage() {
 
   const globalEpc = await sql`SELECT offer_slug, epc FROM global_epc_7d`;
   const perAppEpc = await sql`SELECT app_name, offer_slug, epc FROM per_app_epc_7d`;
-  const overrides = await sql`SELECT app_id, offer_slug, is_active, pinned_position, epc_mode FROM offer_overrides`;
+  const overrides = await sql`SELECT app_id, offer_slug, pinned_position, epc_mode FROM offer_overrides`;
 
   let firestore;
   try { firestore = getFirestore(); } catch(e) {}
@@ -35,9 +35,13 @@ export default async function StatsPage() {
             const urlObj = new URL(url);
             slug = urlObj.searchParams.get('aff_sub3') || ''; 
         } catch(e) {}
-        // Если слага нет, используем ID документа как ключ
         const key = slug || doc.id;
-        fsData[key] = { pos: data[app.sortField], title: data.title || doc.id, slug };
+        fsData[key] = { 
+          pos: data[app.sortField], 
+          title: data.title || doc.id, 
+          slug, 
+          active: data.active !== false 
+        };
       });
     }
 
@@ -64,7 +68,7 @@ export default async function StatsPage() {
         globalEpc: gEpc,
         perAppEpc: pEpc,
         currentPos: fs?.pos || '?',
-        isActive: or ? or.is_active : true,
+        isActive: fs ? fs.active : true, // Берем из Firestore
         pinned: or ? or.pinned_position : null,
         epcMode: appConfig ? appConfig.epc_mode : 'global',
         hasSlug: !!(fs?.slug || row?.offer_slug)

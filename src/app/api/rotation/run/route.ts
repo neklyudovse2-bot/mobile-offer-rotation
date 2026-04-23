@@ -54,17 +54,19 @@ export async function GET(request: Request) {
       });
 
       const appOverrides = await sql`
-        SELECT offer_slug, is_active, pinned_position FROM offer_overrides WHERE app_id = ${app.appId}
+        SELECT offer_slug, pinned_position FROM offer_overrides WHERE app_id = ${app.appId}
       `;
       const overridesMap = new Map(appOverrides.map((o: any) => [o.offer_slug, o]));
 
       const activeOffers: any[] = [];
 
       for (const o of offers) {
-        const ov = overridesMap.get(o.slug || o.id); // Используем ID если слага нет для проверки оверрайда
-        const isActive = ov ? ov.is_active : true;
+        // Источник правды для активности - Firestore
+        const isActive = o.data.active !== false; 
+        
+        const ov = overridesMap.get(o.slug || o.id);
         const pinnedPos = ov ? ov.pinned_position : null;
-        const epc = o.slug ? (epcMap.get(o.slug) || 0) : -1; // -1 для офферов без слага для сортировки
+        const epc = o.slug ? (epcMap.get(o.slug) || 0) : -1;
 
         if (isActive) {
           activeOffers.push({ ...o, pinnedPos, epc });
@@ -80,7 +82,6 @@ export async function GET(request: Request) {
       const pinned = activeOffers.filter(o => o.pinnedPos !== null);
       const sortable = activeOffers.filter(o => o.pinnedPos === null);
 
-      // Сортировка: Сначала EPC (desc), пустые слаги всегда в конец
       sortable.sort((a, b) => {
         if (a.slug && !b.slug) return -1;
         if (!a.slug && b.slug) return 1;
