@@ -1,15 +1,23 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
 import { APP_MAPPING } from '@/config/mapping';
-import { DateTime } from 'luxon';
 
 export async function GET() {
   const apiKey = (process.env.KEITARO_API_KEY || '').trim();
   const baseUrl = (process.env.KEITARO_URL || '').trim();
   const timezone = (process.env.KEITARO_TIMEZONE || 'Asia/Yekaterinburg').trim();
 
-  const to = '2026-04-23';
-  const from = '2026-04-14';
+  // Вычисляем даты в timezone Asia/Yekaterinburg (UTC+5) через стандартный JS
+  const now = new Date();
+  const yektNow = new Date(now.getTime() + 5 * 60 * 60 * 1000); // UTC+5
+  const toDate = yektNow.toISOString().slice(0, 10); // YYYY-MM-DD
+
+  const fromDateObj = new Date(yektNow);
+  fromDateObj.setDate(fromDateObj.getDate() - 7);
+  const fromDate = fromDateObj.toISOString().slice(0, 10);
+
+  const to = toDate;
+  const from = fromDate;
 
   try {
     const timestamp = new Date().toISOString();
