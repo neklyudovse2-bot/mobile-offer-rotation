@@ -14,11 +14,7 @@ export async function GET() {
   try {
     const timestamp = new Date().toISOString();
     const appsSynced = [];
-
-    // We'll collect all rows and insert them in a single batch/transaction simulated way with neon
-    // since we want "one transaction" as per instructions.
-    
-    const allDataToInsert = [];
+    const allDataToInsert: any[] = [];
 
     for (const app of APP_MAPPING) {
       const response = await fetch(`${baseUrl}/admin_api/v1/report/build`, {
@@ -54,15 +50,14 @@ export async function GET() {
       appsSynced.push({ app_name: app.name, rows_synced: data.rows.length });
     }
 
-    // Single transaction for Neon:
-    await sql.transaction(async (tx) => {
-      for (const row of allDataToInsert) {
-        await tx`
-          INSERT INTO keitaro_stats (synced_at, app_name, offer_slug, date_from, date_to, clicks, conversions, revenue)
-          VALUES (${timestamp}, ${row.app_name}, ${row.offer_slug}, ${from}, ${to}, ${row.clicks}, ${row.conversions}, ${row.revenue})
-        `;
-      }
-    });
+    if (allDataToInsert.length > 0) {
+      const queries = allDataToInsert.map(row => sql`
+        INSERT INTO keitaro_stats (synced_at, app_name, offer_slug, date_from, date_to, clicks, conversions, revenue)
+        VALUES (${timestamp}, ${row.app_name}, ${row.offer_slug}, ${from}, ${to}, ${row.clicks}, ${row.conversions}, ${row.revenue})
+      `);
+      
+      await sql.transaction(queries);
+    }
 
     return NextResponse.json({
       ok: true,
