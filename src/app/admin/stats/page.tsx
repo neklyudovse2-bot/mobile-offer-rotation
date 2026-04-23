@@ -1,0 +1,131 @@
+import { isAdminAuthenticated } from '@/lib/auth';
+import Login from '@/components/Login';
+import { APP_MAPPING } from '@/config/mapping';
+import { sql } from '@/lib/db';
+import { getFirestore } from '@/lib/firebase';
+import Link from 'next/link';
+
+export default async function StatsPage() {
+  if (!isAdminAuthenticated()) return <Login />;
+
+  const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
+  const lastSyncDate = lastSyncRes[0]?.last_sync;
+
+  const stats = await sql`
+     SELECT s.* FROM keitaro_stats s 
+     WHERE s.synced_at = (SELECT MAX(synced_at) FROM keitaro_stats)
+  `;
+
+  const globalEpc = await sql`SELECT offer_slug, epc FROM global_epc_7d`;
+  const perAppEpc = await sql`SELECT app_name, offer_slug, epc FROM per_app_epc_7d`;
+  const overrides = await sql`SELECT app_id, offer_slug, is_active, pinned_position, epc_mode FROM offer_overrides`;
+
+  let firestore;
+  try { firestore = getFirestore(); } catch(e) {}
+
+  const appsStats = [];
+  for (const app of APP_MAPPING) {
+    const appOffers: any[] = [];
+    
+    // Получаем текущие позиции из Firestore
+    let fsPositions: any = {};
+    if (firestore) {
+      const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans').get();
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        let slug = '';
+        try { slug = new URL(data.url).searchParams.get('aff_sub3') || ''; } catch(e) {}
+        if (slug) fsPositions[slug] = data[app.sortField];
+      });
+    }
+
+    const appStats = stats.filter((s: any) => s.app_name === app.name);
+    const appOverrides = overrides.filter((o: any) => o.app_id === app.appId);
+    const appConfig = appOverrides.find((o: any) => o.offer_slug === 'SYSTEM_DEFAULT');
+
+    // Собираем уникальные слаги из статистики и Firestore
+    const allSlugs = new Set([...appStats.map((s: any) => s.offer_slug), ...Object.keys(fsPositions)]);
+
+    allSlugs.forEach(slug => {
+      if (!slug) return;
+      const row = appStats.find((s: any) => s.offer_slug === slug);
+      const or = appOverrides.find((o: any) => o.offer_slug === slug);
+      const gEpc = globalEpc.find((e: any) => e.offer_slug === slug)?.epc || 0;
+      const pEpc = perAppEpc.find((e: any) => e.app_name === app.name && e.offer_slug === slug)?.epc || 0;
+
+      appOffers.push({
+        slug,
+        clicks: row?.clicks || 0,
+        conversions: row?.conversions || 0,
+        revenue: row?.revenue || 0,
+        globalEpc: gEpc,
+        perAppEpc: pEpc,
+        currentPos: fsPositions[slug] || '?',
+        isActive: or ? or.is_active : true,
+        pinned: or ? or.pinned_position : null,
+        epcMode: appConfig ? appConfig.epc_mode : 'global'
+      });
+    });
+
+    // Сортируем для красоты по доходности приложения
+    appOffers.sort((a, b) => b.perAppEpc - a.perAppEpc);
+
+    appsStats.push({ ...app, appOffers, epcMode: appConfig ? appConfig.epc_mode : 'global' });
+  }
+
+  return (
+    <div className="min-h-screen bg-white text-black p-8">
+      <div className="max-w-7xl mx-auto">
+        <Link href="/admin" className="text-blue-600 text-sm mb-4 inline-block">← Назад</Link>
+        <h1 className="text-3xl font-bold mb-8 uppercase tracking-tight text-gray-900 border-b-2 border-black inline-block pb-1">Статистика систем</h1>
+        
+        <div className="space-y-12 mt-8">
+          {appsStats.map(app => (
+            <div key={app.appId} className="border border-gray-100 rounded shadow-sm overflow-hidden">
+              <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+                <h2 className="text-xl font-bold uppercase">{app.name} <span className="text-gray-400 font-normal">({app.appId})</span></h2>
+                <span className="text-xs bg-black text-white px-2 py-1 rounded font-bold uppercase tracking-wider">
+                  Режим: {app.epcMode}
+                </span>
+              </div>
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-100 uppercase text-[10px] text-gray-400 font-black tracking-widest">
+                    <th className="px-6 py-4">Slug</th>
+                    <th className="px-6 py-4">Клики</th>
+                    <th className="px-6 py-4">Конв.</th>
+                    <th className="px-6 py-4">Revenue</th>
+                    <th className="px-6 py-4">EPC Global</th>
+                    <th className="px-6 py-4">EPC App</th>
+                    <th className="px-6 py-4">Поз.</th>
+                    <th className="px-6 py-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {app.appOffers.map((o: any) => (
+                    <tr key={o.slug} className={`hover:bg-gray-50 ${!o.isActive ? 'opacity-40 grayscale' : ''}`}>
+                      <td className="px-6 py-4 font-bold">{o.slug} {o.pinned && <span className="text-blue-600 ml-1">📌 {o.pinned}</span>}</td>
+                      <td className="px-6 py-4 font-mono">{o.clicks}</td>
+                      <td className="px-6 py-4 font-mono">{o.conversions}</td>
+                      <td className="px-6 py-4 font-mono text-green-700">{o.revenue}</td>
+                      <td className="px-6 py-4 font-mono">{parseFloat(o.globalEpc).toFixed(2)}</td>
+                      <td className="px-6 py-4 font-mono font-bold">{parseFloat(o.perAppEpc).toFixed(2)}</td>
+                      <td className="px-6 py-4 font-mono text-blue-600">#{o.currentPos}</td>
+                      <td className="px-6 py-4">
+                        {o.isActive ? (
+                          <span className="text-[10px] bg-green-100 text-green-800 px-2 py-0.5 rounded uppercase font-bold">Active</span>
+                        ) : (
+                          <span className="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded uppercase font-bold">Hidden</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
