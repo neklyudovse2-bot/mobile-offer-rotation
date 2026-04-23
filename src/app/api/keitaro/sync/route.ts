@@ -8,8 +8,8 @@ export async function GET() {
   const baseUrl = process.env.KEITARO_URL;
   const timezone = process.env.KEITARO_TIMEZONE || 'Asia/Yekaterinburg';
 
-    const to = DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd');
-    const from = DateTime.now().setZone(timezone).minus({ days: 10 }).toFormat('yyyy-MM-dd'); // Range widened just in case
+  const to = DateTime.now().setZone(timezone).toFormat('yyyy-MM-dd');
+  const from = DateTime.now().setZone(timezone).minus({ days: 10 }).toFormat('yyyy-MM-dd');
 
   try {
     const timestamp = new Date().toISOString();
@@ -17,22 +17,33 @@ export async function GET() {
     const allDataToInsert: any[] = [];
 
     for (const app of APP_MAPPING) {
-      const response = await fetch(`${baseUrl}/admin_api/v1/report/build`, {
+      const url = `${baseUrl}/admin_api/v1/report/build`;
+      const headers = {
+        'Api-Key': apiKey!,
+        'Content-Type': 'application/json'
+      };
+      const body = {
+        range: { from, to, timezone },
+        grouping: ['sub_id_3'],
+        metrics: ['clicks', 'conversions', 'revenue'],
+        filters: [{ name: 'campaign_id', operator: 'equals', expression: app.campaignId.toString() }]
+      };
+
+      console.log('--- Keitaro API Request Debug ---');
+      console.log('URL:', url);
+      console.log('Headers:', JSON.stringify(headers));
+      console.log('Body:', JSON.stringify(body));
+
+      const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Api-Key': apiKey!,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          range: { from, to, timezone },
-          grouping: ['sub_id_3'],
-          metrics: ['clicks', 'conversions', 'revenue'],
-          filters: [{ name: 'campaign_id', operator: 'equals', expression: app.campaignId.toString() }]
-        })
+        headers: headers,
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
-        throw new Error(`Keitaro API error for ${app.name}: ${await response.text()}`);
+        const errorText = await response.text();
+        console.error(`Keitaro API Error Response [${response.status}]:`, errorText);
+        throw new Error(`Keitaro API error for ${app.name}: ${errorText}`);
       }
 
       const data = await response.json();
