@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
+  console.log('[OfferSettings] RENDER, initialOffers[0].isActive =', initialOffers[0]?.isActive);
+  
   const [epcMode, setEpcMode] = useState(initialEpcMode);
   const [offers, setOffers] = useState(initialOffers);
   const [saving, setSaving] = useState(false);
@@ -11,6 +13,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
 
   // Синхронизация стейта с пропсами при их обновлении сервером
   useEffect(() => {
+    console.log('[OfferSettings] useEffect sync, new initialOffers[0].isActive =', initialOffers[0]?.isActive);
     setOffers(initialOffers);
   }, [initialOffers]);
 
@@ -36,6 +39,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const updateOffer = async (slug: string, docId: string, fields: any) => {
+    console.log('[updateOffer] CALLED for', slug, 'fields:', fields);
     let prevOffers: any[] = [];
     
     // Используем функциональный апдейтер для избежания замыканий на старый стейт
