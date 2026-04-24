@@ -149,8 +149,21 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
         <div className="flex items-center gap-3">
           <Avatar slug={o.slug} />
           <div>
-            <div className="text-sm font-semibold text-[#313a46]">{o.displayName}</div>
-            <div className="text-[10px] text-[#98a6ad] font-mono leading-none mt-0.5">{o.slug}</div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-[#313a46]">
+                {o.displayName}
+              </span>
+              {!o.hasSlug && (
+                <span className="px-1.5 py-0.5 rounded bg-[#fcebee] text-[#f1556c] text-[9px] font-bold uppercase tracking-wider">
+                  NO SLUG
+                </span>
+              )}
+            </div>
+            {o.hasSlug && (
+              <div className="text-xs text-[#98a6ad] mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis max-w-[150px]">
+                {o.slug}
+              </div>
+            )}
           </div>
         </div>
       </td>
