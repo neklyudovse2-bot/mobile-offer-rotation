@@ -10,8 +10,7 @@ export async function GET(request: Request) {
 
     const protocol = request.url.startsWith('https') ? 'https' : 'http';
     const host = request.headers.get('host');
-    const syncUrl = `${protocol}://${host}/api/keitaro/sync`;
-    const syncRes = await fetch(syncUrl, { cache: 'no-store' });
+    const syncRes = await fetch(`${protocol}://${host}/api/keitaro/sync`, { cache: 'no-store' });
     
     if (!syncRes.ok) {
       const errorData = await syncRes.json();
@@ -45,7 +44,10 @@ export async function GET(request: Request) {
         const data = doc.data();
         const url = data.url || '';
         let slug = '';
-        try { slug = new URL(url).searchParams.get('aff_sub3') || ''; } catch (e) {}
+        try {
+          const urlObj = new URL(url);
+          slug = urlObj.searchParams.get('aff_sub3') || '';
+        } catch (e) {}
         return { id: doc.id, slug, data, currentPos: data[app.sortField] || 999 };
       });
 
@@ -74,19 +76,18 @@ export async function GET(request: Request) {
       pinZone.sort((a, b) => a.manual_pin - b.manual_pin);
       autoZone.sort((a, b) => b.epc - a.epc);
       
-      const autoUpdates: any[] = [];
       autoZone.forEach((o, i) => {
         o.auto_priority = i + 1;
-        autoUpdates.push({ slug: o.slug, priority: o.auto_priority });
       });
 
-      if (autoUpdates.length > 0) {
-          const queries = autoUpdates.map(u => sql`
-            INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
-            VALUES (${app.appId}, ${u.slug}, ${u.priority})
-            ON CONFLICT (app_id, offer_slug) DO UPDATE SET auto_priority = EXCLUDED.auto_priority
-          `);
-          await sql.transaction(queries);
+      // В Neon HTTP драйвере нет поддержки транзакций через массив запросов в простом sql() вызове.
+      // Используем цикл, так как офферов немного (обычно 10-20 на приложение).
+      for (const o of autoZone) {
+        await sql`
+          INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
+          VALUES (${app.appId}, ${o.slug}, ${o.auto_priority})
+          ON CONFLICT (app_id, offer_slug) DO UPDATE SET auto_priority = EXCLUDED.auto_priority
+        `;
       }
 
       defaultZone.sort((a, b) => a.currentPos - b.currentPos);

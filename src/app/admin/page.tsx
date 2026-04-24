@@ -22,10 +22,10 @@ export default async function AdminPage() {
 
   if (errorMsg) {
     return (
-      <div className="p-10 text-red-600 font-mono text-center">
-        <h1 className="text-2xl font-bold mb-4">CRITICAL ERROR</h1>
+      <div className="p-10 text-red-600 font-mono text-center text-black">
+        <h1 className="text-2xl font-bold mb-4 uppercase">Critical Configuration Error</h1>
         <p className="bg-red-50 p-4 border border-red-200 rounded">{errorMsg}</p>
-        <p className="mt-4 text-gray-600">Please configure the variable in Vercel Dashboard.</p>
+        <p className="mt-4 text-gray-600">Please check your Vercel Environment Variables.</p>
       </div>
     );
   }
@@ -43,7 +43,8 @@ export default async function AdminPage() {
   const appsData = [];
 
   for (const app of APP_MAPPING) {
-    let topOffers = [];
+    // Явно указываем тип
+    let topOffers: Array<{slug: string, pos: number}> = [];
     if (firestore) {
       const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans')
         .orderBy(app.sortField)
@@ -86,15 +87,15 @@ export default async function AdminPage() {
             
             <div className="mb-6 space-y-2">
               <p className="text-[10px] uppercase text-gray-400 font-black tracking-widest">TOP 3 OFFERS</p>
-              {app.topOffers.length > 0 ? app.topOffers.map((o: any) => (
+              {app.topOffers.length > 0 ? app.topOffers.map((o) => (
                 <div key={o.slug} className="flex justify-between text-sm py-1 border-b border-gray-50 last:border-0 uppercase font-medium">
-                  <span>{o.slug}</span>
-                  <span className="text-blue-600 font-mono">#{o.pos}</span>
+                  <span className="truncate max-w-[120px]">{o.slug}</span>
+                  <span className="text-blue-600 font-mono flex-shrink-0">#{o.pos}</span>
                 </div>
               )) : <p className="text-gray-400 italic text-sm">Нет данных Firestore</p>}
             </div>
 
-            <div className="flex gap-2 mt-4">
+            <div className="flex gap-2 mt-4 text-black">
               <Link href={`/admin/stats/${app.appId}`} className="flex-1 text-center py-2 border border-gray-200 rounded text-[10px] uppercase font-black tracking-widest hover:bg-black hover:text-white transition-colors">Статистика</Link>
               <Link href={`/admin/offers/${app.appId}`} className="flex-1 text-center py-2 bg-blue-600 text-white rounded text-[10px] uppercase font-black tracking-widest hover:bg-blue-700 transition-colors">Ротация</Link>
             </div>
