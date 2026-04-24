@@ -5,6 +5,7 @@ import { sql } from '@/lib/db';
 import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
 import OfferSettings from '@/components/OfferSettings';
+import AdminNav from '@/components/AdminNav';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,7 +45,7 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
         docId: doc.id,
         displayName: data.title || doc.id,
         currentPos: data[app.sortField],
-        initialPos: data[app.sortField], // Информационный столбец
+        initialPos: data[app.sortField],
         isActive: data.active !== false,
         manualPin: ov?.manual_pin ?? null,
         autoPriority: ov?.auto_priority ?? null,
@@ -52,17 +53,20 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
       };
     });
 
-    // Сортировка по итоговой позиции в Firestore
     initialOffers.sort((a, b) => a.currentPos - b.currentPos);
   }
 
   return (
-    <div className="min-h-screen bg-white text-black p-8">
+    <div className="min-h-screen bg-white text-black p-8 font-sans">
       <div className="max-w-4xl mx-auto">
+        <AdminNav />
         <Link href="/admin" className="text-blue-600 text-sm mb-4 inline-block">← Назад на дашборд</Link>
-        <div className="mb-8 border-b-2 border-black pb-4">
+        <div className="mb-8 border-b-2 border-black pb-4 mt-4">
           <h1 className="text-4xl font-black uppercase tracking-tighter">Настройки: {app.name}</h1>
-          <p className="text-gray-400 font-mono text-sm mt-1">{app.appId} | Sorting zone logic activated</p>
+          <div className="flex gap-4 items-center mt-1">
+             <p className="text-gray-400 font-mono text-sm uppercase tracking-widest">{app.appId}</p>
+             <Link href={`/admin/stats/${app.appId}`} className="text-[10px] bg-gray-100 px-2 py-0.5 rounded font-black text-gray-500 hover:bg-black hover:text-white uppercase tracking-widest transition-all">Открыть статистику</Link>
+          </div>
         </div>
 
         <OfferSettings 

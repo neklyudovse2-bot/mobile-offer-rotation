@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
@@ -9,12 +9,19 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
-  // Хак для предотвращения проблем при внешних обновлениях (хотя с Ref-паттерном лучше)
-  // Но здесь мы полагаемся на то, что это единственный источник правды в сессии
-  
+  // Синхронизация стейта с пропсами при их обновлении сервером
+  useEffect(() => {
+    setOffers(initialOffers);
+  }, [initialOffers]);
+
+  useEffect(() => {
+    setEpcMode(initialEpcMode);
+  }, [initialEpcMode]);
+
   const updateEpcMode = async (mode: string) => {
-    const prev = epcMode;
-    setEpcMode(mode);
+    let prev = epcMode;
+    setEpcMode(mode); // Оптимистично
+    
     try {
       const res = await fetch('/api/admin/override', {
         method: 'POST',
@@ -23,15 +30,19 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       });
       if (!res.ok) throw new Error();
     } catch (e) {
-      setEpcMode(prev);
+      setEpcMode(prev); // Откат
       alert('Ошибка при смене режима EPC');
     }
   };
 
   const updateOffer = async (slug: string, docId: string, fields: any) => {
-    const prevOffers = [...offers];
-    const updated = offers.map((o: any) => o.slug === slug ? { ...o, ...fields } : o);
-    setOffers(updated);
+    let prevOffers: any[] = [];
+    
+    // Используем функциональный апдейтер для избежания замыканий на старый стейт
+    setOffers((current: any[]) => {
+      prevOffers = current;
+      return current.map((o: any) => o.slug === slug ? { ...o, ...fields } : o);
+    });
 
     try {
       const res = await fetch('/api/admin/override', {
@@ -50,7 +61,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
         throw new Error(data.error || 'Failed to save');
       }
     } catch (e: any) {
-      setOffers(prevOffers);
+      setOffers(prevOffers); // Откат при ошибке
       alert(e.message);
     }
   };
@@ -63,7 +74,6 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       if (data.ok) {
         alert('Пересчет приложения завершен!');
         router.refresh();
-        window.location.reload();
       } else {
         alert('Ошибка: ' + (data.error || 'Unknown'));
       }
@@ -80,7 +90,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   const defaultZone = offers.filter((o: any) => o.manualPin === null && o.autoPriority === null && o.isActive);
   const inactiveZone = offers.filter((o: any) => !o.isActive);
 
-  // Сортировка внутри зон (временно для UI, пока не обновился серверный пропс)
+  // Сортировка внутри зон
   pinZone.sort((a: any, b: any) => a.manualPin - b.manualPin);
   autoZone.sort((a: any, b: any) => a.autoPriority - b.autoPriority);
   defaultZone.sort((a: any, b: any) => a.initialPos - b.initialPos);
@@ -111,7 +121,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           }}
           onChange={(e) => {
              const val = e.target.value === '' ? null : parseInt(e.target.value);
-             setOffers(offers.map((curr: any) => curr.slug === o.slug ? { ...curr, manualPin: val } : curr));
+             setOffers((curr: any[]) => curr.map((item: any) => item.slug === o.slug ? { ...item, manualPin: val } : item));
           }}
           className="p-2 border border-gray-300 rounded w-16 text-center font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
         />
@@ -158,22 +168,18 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50 bg-white">
-            {/* PIN ZONE */}
             {pinZone.map(renderRow)}
             {pinZone.length > 0 && (
               <tr><td colSpan={6} className="bg-blue-50/30 border-y border-blue-100 py-1 text-[9px] text-center font-bold text-blue-400 tracking-widest">END OF PIN ZONE</td></tr>
             )}
 
-            {/* AUTO ZONE */}
             {autoZone.map(renderRow)}
             {autoZone.length > 0 && (
               <tr><td colSpan={6} className="bg-green-50/30 border-y border-green-100 py-1 text-[9px] text-center font-bold text-green-400 tracking-widest">END OF AUTO ZONE</td></tr>
             )}
 
-            {/* DEFAULT ZONE */}
             {defaultZone.map(renderRow)}
             
-            {/* INACTIVE */}
             {inactiveZone.length > 0 && (
               <>
                 <tr><td colSpan={6} className="bg-gray-100 border-y border-gray-200 py-1 text-[9px] text-center font-bold text-gray-400 tracking-widest uppercase">Inactive Offers (Hidden)</td></tr>
