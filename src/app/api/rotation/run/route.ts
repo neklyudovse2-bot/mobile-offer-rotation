@@ -8,10 +8,10 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const filterAppId = searchParams.get('app_id');
 
-    // 1. Синхронизация данных Keitaro (всегда для всех, чтобы были актуальные EPC)
     const protocol = request.url.startsWith('https') ? 'https' : 'http';
     const host = request.headers.get('host');
-    const syncRes = await fetch(`${protocol}://${host}/api/keitaro/sync`, { cache: 'no-store' });
+    const syncUrl = `${protocol}://${host}/api/keitaro/sync`;
+    const syncRes = await fetch(syncUrl, { cache: 'no-store' });
     
     if (!syncRes.ok) {
       const errorData = await syncRes.json();
@@ -27,11 +27,9 @@ export async function GET(request: Request) {
     const appsToProcess = filterAppId ? APP_MAPPING.filter(a => a.appId === filterAppId) : APP_MAPPING;
 
     for (const app of appsToProcess) {
-      // a. Режим EPC
       const overrideModeRes = await sql`SELECT epc_mode FROM offer_overrides WHERE app_id = ${app.appId} AND offer_slug = 'SYSTEM_DEFAULT' LIMIT 1`;
       const epcMode = overrideModeRes[0]?.epc_mode || 'global';
 
-      // b. Статистика EPC
       let epcStats;
       if (epcMode === 'per_app') {
         epcStats = await sql`SELECT offer_slug, epc FROM per_app_epc_7d WHERE app_name = ${app.name}`;
@@ -40,7 +38,6 @@ export async function GET(request: Request) {
       }
       const epcMap = new Map(epcStats.map((s: any) => [s.offer_slug, parseFloat(s.epc)]));
 
-      // c. Firestore docs
       const loansRef = firestore.collection(app.appId).doc('ru').collection('loans');
       const snapshot = await loansRef.get();
       
@@ -52,11 +49,9 @@ export async function GET(request: Request) {
         return { id: doc.id, slug, data, currentPos: data[app.sortField] || 999 };
       });
 
-      // d. Overrides
       const appOverrides = await sql`SELECT offer_slug, manual_pin, auto_priority FROM offer_overrides WHERE app_id = ${app.appId}`;
       const overridesMap = new Map(appOverrides.map((o: any) => [o.offer_slug, o]));
 
-      // e. Фильтрация и разделение на зоны
       const activeOffers = offers.filter(o => o.data.active !== false);
 
       const pinZone: any[] = [];
@@ -76,20 +71,15 @@ export async function GET(request: Request) {
         }
       });
 
-      // f. Сортировка и расчет приоритетов
-      // 1. PIN-зона: по manual_pin ASC
       pinZone.sort((a, b) => a.manual_pin - b.manual_pin);
-
-      // 2. AUTO-зона: по EPC DESC, затем присваиваем auto_priority
       autoZone.sort((a, b) => b.epc - a.epc);
       
-      const autoUpdates = [];
+      const autoUpdates: any[] = [];
       autoZone.forEach((o, i) => {
         o.auto_priority = i + 1;
         autoUpdates.push({ slug: o.slug, priority: o.auto_priority });
       });
 
-      // Сохраняем auto_priority в БД (одной транзакцией или пачкой)
       if (autoUpdates.length > 0) {
           const queries = autoUpdates.map(u => sql`
             INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
@@ -99,20 +89,18 @@ export async function GET(request: Request) {
           await sql.transaction(queries);
       }
 
-      // 3. DEFAULT-зона: по текущей позиции в Firestore для стабильности
       defaultZone.sort((a, b) => a.currentPos - b.currentPos);
 
-      // g. Склейка и обновление Firestore
       const finalList = [...pinZone, ...autoZone, ...defaultZone];
       const batch = firestore.batch();
-      const reportOffers = [];
+      const reportOffers: any[] = [];
 
       finalList.forEach((o, index) => {
-        const newPos = index + 1;
-        batch.update(loansRef.doc(o.id), { [app.sortField]: newPos });
+        const pos = index + 1;
+        batch.update(loansRef.doc(o.id), { [app.sortField]: pos });
         reportOffers.push({ 
            slug: o.slug || o.data.title || o.id, 
-           new_position: newPos, 
+           new_position: pos, 
            zone: o.manual_pin ? 'PIN' : (o.auto_priority ? 'AUTO' : 'DEFAULT'),
            epc: o.epc || 0
         });
