@@ -20,7 +20,7 @@ export default function AdminNav({ lastSync }: { lastSync?: string }) {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                <RefreshCw className="w-5 h-5 text-white stroke-[2.5]" />
             </div>
-            <span className="font-bold text-slate-900 tracking-tight text-lg">Rotation Admin</span>
+            <span className="font-semibold text-slate-900 tracking-tight text-lg">Rotation Admin</span>
           </div>
           
           <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-100">
@@ -48,7 +48,7 @@ export default function AdminNav({ lastSync }: { lastSync?: string }) {
         {lastSync && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-full border border-slate-100">
             <RefreshCw className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{lastSync}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{lastSync}</span>
           </div>
         )}
       </div>
