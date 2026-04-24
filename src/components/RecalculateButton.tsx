@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 
-export default function RecalculateButton() {
+export default function RecalculateButton({ fullWidth = false }: { fullWidth?: boolean }) {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
@@ -28,9 +29,10 @@ export default function RecalculateButton() {
     <button 
       onClick={handleClick}
       disabled={loading}
-      className={`px-8 py-3 bg-black text-white rounded font-bold hover:bg-gray-800 transition-colors uppercase tracking-widest text-xs ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+      className={`flex items-center justify-center gap-3 py-4 rounded-2xl bg-slate-900 text-white font-bold hover:bg-black transition-all active:scale-[0.99] shadow-xl shadow-slate-200 uppercase text-xs tracking-[0.2em] disabled:opacity-50 disabled:cursor-not-allowed ${fullWidth ? 'w-full' : 'px-12'}`}
     >
-      {loading ? 'Считаю...' : 'Пересчитать все сейчас'}
+      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+      {loading ? 'Обработка данных...' : 'Запустить полную ротацию'}
     </button>
   );
 }
