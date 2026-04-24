@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
+  // Инициализируем state только один раз через Ref
   const initialRef = useRef({ offers: initialOffers, epcMode: initialEpcMode });
   const [offers, setOffers] = useState(initialRef.current.offers);
   const [epcMode, setEpcMode] = useState(initialRef.current.epcMode);
@@ -28,7 +29,6 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const updateOffer = async (slug: string, docId: string, fields: any) => {
-    console.log('[CLIENT] updateOffer called', { slug, docId, fields });
     let prev: any[] = [];
     
     setOffers((current: any[]) => {
@@ -92,11 +92,11 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
 
   const renderRow = (o: any) => (
     <tr key={o.slug} className={`${!o.isActive ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50/50'} transition-all`}>
-      <td className="px-6 py-4">
+      <td className="px-6 py-4 text-black">
         <div className="font-bold text-gray-900">{o.displayName}</div>
-        {!o.hasSlug && <span className="text-[10px] text-gray-400 font-mono tracking-tighter">NO SLUG: {o.slug}</span>}
+        {!o.hasSlug && <span className="text-[10px] text-gray-400 font-mono tracking-tighter text-black">NO SLUG: {o.slug}</span>}
       </td>
-      <td className="px-6 py-4 font-mono text-blue-600 text-center text-sm font-bold">#{o.currentPos}</td>
+      <td className="px-6 py-4 font-mono text-blue-600 text-center text-sm font-bold text-black border-black">#{o.currentPos}</td>
       <td className="px-6 py-4 text-center">
         <select
           value={o.isActive ? 'true' : 'false'}
@@ -114,22 +114,43 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       <td className="px-6 py-4 text-center">
         <input 
           type="number" 
-          defaultValue={o.manualPin === null ? '' : o.manualPin}
+          value={o.manualPin === null || o.manualPin === undefined ? '' : o.manualPin}
           placeholder="—"
-          onBlur={(e) => {
-             const val = e.target.value === '' ? null : parseInt(e.target.value);
-             updateOffer(o.slug, o.docId, { manual_pin: val });
+          onChange={(e) => {
+            const val = e.target.value === '' ? null : parseInt(e.target.value);
+            setOffers((curr: any[]) => 
+              curr.map((item: any) => item.slug === o.slug ? { ...item, manualPin: val } : item)
+            );
           }}
-          className="p-2 border border-gray-300 rounded w-16 text-center font-mono focus:border-blue-500 focus:ring-1 outline-none shadow-inner"
+          onBlur={(e) => {
+            const val = e.target.value === '' ? null : parseInt(e.target.value);
+            fetch('/api/admin/override', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                app_id: app.appId, 
+                offer_slug: o.slug, 
+                doc_id: o.docId, 
+                manual_pin: val 
+              })
+            }).then(res => {
+              if (!res.ok) {
+                res.json().then(data => {
+                  alert(data.error || 'Ошибка сохранения');
+                });
+              }
+            });
+          }}
+          className="p-2 border border-gray-300 rounded w-16 text-center font-mono focus:border-blue-500 focus:ring-1 outline-none shadow-inner text-black"
         />
       </td>
-      <td className="px-6 py-4 font-mono text-center text-gray-400 text-xs">{o.autoPriority || '—'}</td>
-      <td className="px-6 py-4 font-mono text-center text-gray-400 text-[10px]">{o.initialPos}</td>
+      <td className="px-6 py-4 font-mono text-center text-gray-400 text-xs text-black border-black">{o.autoPriority || '—'}</td>
+      <td className="px-6 py-4 font-mono text-center text-gray-400 text-[10px] text-black border-black">{o.initialPos}</td>
     </tr>
   );
 
   return (
-    <div className="space-y-8 text-black">
+    <div className="space-y-8 text-black border-black">
       <div className="bg-gray-50 p-6 rounded border border-gray-100 flex justify-between items-center shadow-sm">
         <div>
           <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest leading-none">Метод EPC</label>
@@ -163,7 +184,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
               <th className="px-6 py-4 text-center">Orig</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-gray-50 border-black">
             {pinZone.map(renderRow)}
             {pinZone.length > 0 && <tr><td colSpan={6} className="bg-blue-50/20 py-1 text-[8px] text-center font-bold text-blue-300 tracking-[0.2em] uppercase leading-none">Manual Priority End</td></tr>}
             {autoZone.map(renderRow)}
