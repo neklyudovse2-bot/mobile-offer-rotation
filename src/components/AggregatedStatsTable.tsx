@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Package, MousePointerClick, TrendingUp, Wallet, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function AggregatedStatsTable({ data }: { data: any[] }) {
   const [sortKey, setSortKey] = useState('revenue');
@@ -26,50 +27,98 @@ export default function AggregatedStatsTable({ data }: { data: any[] }) {
     return (valA - valB) * mul;
   });
 
+  const maxEpc = Math.max(...data.map(r => r.epc), 0);
+
+  const getLetterColor = (char: string) => {
+    const code = char.toLowerCase().charCodeAt(0) - 97;
+    if (code >= 0 && code <= 4) return 'bg-blue-100 text-blue-700';
+    if (code >= 5 && code <= 9) return 'bg-violet-100 text-violet-700';
+    if (code >= 10 && code <= 14) return 'bg-emerald-100 text-emerald-700';
+    if (code >= 15 && code <= 19) return 'bg-amber-100 text-amber-700';
+    return 'bg-rose-100 text-rose-700';
+  };
+
   const headers = [
-    { key: 'displayName', label: 'Оффер (Slug)' },
-    { key: 'clicks', label: 'Клики' },
-    { key: 'conversions', label: 'Конв.' },
-    { key: 'revenue', label: 'Revenue' },
-    { key: 'epc', label: 'EPC' },
+    { key: 'slug', label: 'Оффер (Slug)', align: 'text-left px-6' },
+    { key: 'clicks', label: 'Клики', align: 'text-right px-4' },
+    { key: 'conversions', label: 'Конв.', align: 'text-right px-4' },
+    { key: 'revenue', label: 'Revenue', align: 'text-right px-4' },
+    { key: 'epc', label: 'EPC', align: 'text-right px-6' },
   ];
 
+  const formatNum = (num: number) => Math.round(num).toLocaleString('ru-RU');
+
   return (
-    <div className="border border-gray-100 rounded-lg shadow-sm overflow-hidden bg-white">
-      <table className="w-full text-left text-sm text-black">
-        <thead>
-          <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest">
-            {headers.map(h => (
-              <th 
-                key={h.key} 
-                onClick={() => toggleSort(h.key)}
-                className="px-6 py-4 cursor-pointer hover:text-black transition-colors"
-              >
-                <div className="flex items-center gap-1">
-                  {h.label}
-                  {sortKey === h.key && (
-                    <span className="text-blue-600">{sortDir === 'asc' ? '↑' : '↓'}</span>
-                  )}
-                </div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {sortedData.map((o: any) => (
-            <tr key={o.slug} className="hover:bg-gray-50 transition-all">
-              <td className="px-6 py-4">
-                <div className="font-bold text-gray-900 leading-tight">{o.displayName}</div>
-                <div className="text-[9px] text-gray-400 font-mono mt-0.5">{o.slug}</div>
-              </td>
-              <td className="px-6 py-4 font-mono">{o.clicks.toLocaleString('ru-RU')}</td>
-              <td className="px-6 py-4 font-mono text-center">{o.conversions.toLocaleString('ru-RU')}</td>
-              <td className="px-6 py-4 font-mono text-green-700 font-bold">{o.revenue.toLocaleString('ru-RU')}</td>
-              <td className="px-6 py-4 font-mono font-bold text-blue-600">{o.epc.toFixed(2)}</td>
+    <div className="space-y-8">
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {[
+          { label: 'Офферов', val: data.length, icon: Package, color: 'bg-blue-50 text-blue-600' },
+          { label: 'Клики', val: data.reduce((acc, curr) => acc + curr.clicks, 0).toLocaleString('ru-RU'), icon: MousePointerClick, color: 'bg-violet-50 text-violet-600' },
+          { label: 'Конверсии', val: data.reduce((acc, curr) => acc + curr.conversions, 0).toLocaleString('ru-RU'), icon: TrendingUp, color: 'bg-emerald-50 text-emerald-600' },
+          { label: 'Revenue', val: data.reduce((acc, curr) => acc + curr.revenue, 0).toLocaleString('ru-RU') + ' ₽', icon: Wallet, color: 'bg-amber-50 text-amber-600' },
+        ].map((m, i) => (
+          <div key={i} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+            <div className={`w-8 h-8 ${m.color} rounded-lg flex items-center justify-center mb-4`}>
+              <m.icon className="w-5 h-5" />
+            </div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{m.label}</p>
+            <p className="text-2xl font-bold text-slate-900 mt-1">{m.val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Main Table */}
+      <div className="border border-slate-200 rounded-xl shadow-sm overflow-hidden bg-white">
+        <table className="w-full text-left text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-200 h-12">
+              {headers.map(h => (
+                <th 
+                  key={h.key} 
+                  onClick={() => toggleSort(h.key)}
+                  className={`${h.align} cursor-pointer hover:bg-slate-100 transition-colors select-none group`}
+                >
+                  <div className={`flex items-center gap-1 ${h.align.includes('right') ? 'justify-end' : ''}`}>
+                    <span className="text-xs font-semibold uppercase text-slate-500 tracking-wider">
+                      {h.label}
+                    </span>
+                    <span className={`transition-opacity ${sortKey === h.key ? 'opacity-100' : 'opacity-0 group-hover:opacity-30'}`}>
+                      {sortKey === h.key && sortDir === 'asc' ? <ArrowUp className="w-3.5 h-3.5 text-blue-600" /> : <ArrowDown className="w-3.5 h-3.5 text-blue-600" />}
+                    </span>
+                  </div>
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {sortedData.map((o: any) => {
+              const epcOpacity = maxEpc > 0 ? (o.epc / maxEpc) : 0;
+              return (
+                <tr key={o.slug} className="h-14 hover:bg-slate-50/80 transition-colors group">
+                  <td className="px-6 py-2">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm uppercase shrink-0 ${getLetterColor(o.slug[0])}`}>
+                        {o.slug[0]}
+                      </div>
+                      <span className="font-semibold text-slate-900 tracking-tight">{o.slug}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-700">{o.clicks.toLocaleString('ru-RU')}</td>
+                  <td className="px-4 py-2 text-right font-mono tabular-nums text-slate-700">{o.conversions.toLocaleString('ru-RU')}</td>
+                  <td className="px-4 py-2 text-right font-mono tabular-nums text-emerald-700 font-bold">{formatNum(o.revenue)}</td>
+                  <td 
+                    className="px-6 py-2 text-right font-mono tabular-nums text-slate-900 font-bold relative"
+                    style={{ backgroundColor: `rgba(16, 185, 129, ${epcOpacity * 0.15})` }}
+                  >
+                    {o.epc.toFixed(2)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
