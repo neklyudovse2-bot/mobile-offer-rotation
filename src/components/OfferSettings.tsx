@@ -123,6 +123,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
             );
           }}
           onBlur={(e) => {
+            console.log('[PIN onBlur] raw value:', e.target.value, 'type:', typeof e.target.value);
             const val = e.target.value === '' ? null : parseInt(e.target.value);
             fetch('/api/admin/override', {
               method: 'POST',
@@ -157,7 +158,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           <select 
             value={epcMode} 
             onChange={(e) => updateEpcMode(e.target.value)}
-            className="p-3 bg-white border border-gray-200 rounded font-bold min-w-[200px] cursor-pointer outline-none shadow-sm hover:border-gray-400 transition-colors"
+            className="p-3 bg-white border border-gray-200 rounded font-bold min-w-[200px] cursor-pointer outline-none shadow-sm hover:border-gray-400 transition-colors text-black"
           >
             <option value="global">Глобальный (global)</option>
             <option value="per_app">По приложению (per_app)</option>
@@ -175,7 +176,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       <div className="border border-gray-100 rounded-lg overflow-hidden shadow-sm bg-white">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none">
+            <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none text-black font-bold">
               <th className="px-6 py-4">Оффер (Title)</th>
               <th className="px-6 py-4 text-center">Витрина</th>
               <th className="px-6 py-4 text-center">Статус (Active)</th>
