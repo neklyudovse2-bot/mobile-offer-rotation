@@ -4,16 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
-  console.log('[OfferSettings] RENDER, initialOffers[0].isActive =', initialOffers[0]?.isActive);
-  
   const [epcMode, setEpcMode] = useState(initialEpcMode);
   const [offers, setOffers] = useState(initialOffers);
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
-  // Синхронизация стейта с пропсами при их обновлении сервером
   useEffect(() => {
-    console.log('[OfferSettings] useEffect sync, new initialOffers[0].isActive =', initialOffers[0]?.isActive);
     setOffers(initialOffers);
   }, [initialOffers]);
 
@@ -23,8 +19,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
 
   const updateEpcMode = async (mode: string) => {
     let prev = epcMode;
-    setEpcMode(mode); // Оптимистично
-    
+    setEpcMode(mode);
     try {
       const res = await fetch('/api/admin/override', {
         method: 'POST',
@@ -33,16 +28,13 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       });
       if (!res.ok) throw new Error();
     } catch (e) {
-      setEpcMode(prev); // Откат
+      setEpcMode(prev);
       alert('Ошибка при смене режима EPC');
     }
   };
 
   const updateOffer = async (slug: string, docId: string, fields: any) => {
-    console.log('[updateOffer] CALLED for', slug, 'fields:', fields);
     let prevOffers: any[] = [];
-    
-    // Используем функциональный апдейтер для избежания замыканий на старый стейт
     setOffers((current: any[]) => {
       prevOffers = current;
       return current.map((o: any) => o.slug === slug ? { ...o, ...fields } : o);
@@ -59,14 +51,10 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           ...fields 
         })
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to save');
-      }
+      if (!res.ok) throw new Error();
     } catch (e: any) {
-      setOffers(prevOffers); // Откат при ошибке
-      alert(e.message);
+      setOffers(prevOffers);
+      alert('Ошибка при сохранении');
     }
   };
 
@@ -76,10 +64,8 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       const res = await fetch(`/api/admin/recalculate?app_id=${app.appId}`, { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        alert('Пересчет приложения завершен!');
+        alert('Пересчет завершен!');
         router.refresh();
-      } else {
-        alert('Ошибка: ' + (data.error || 'Unknown'));
       }
     } catch (e) {
       alert('Ошибка соединения');
@@ -88,13 +74,11 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
     }
   };
 
-  // Разделение на зоны для отображения
   const pinZone = offers.filter((o: any) => o.manualPin !== null && o.isActive);
   const autoZone = offers.filter((o: any) => o.manualPin === null && o.autoPriority !== null && o.isActive);
   const defaultZone = offers.filter((o: any) => o.manualPin === null && o.autoPriority === null && o.isActive);
   const inactiveZone = offers.filter((o: any) => !o.isActive);
 
-  // Сортировка внутри зон
   pinZone.sort((a: any, b: any) => a.manualPin - b.manualPin);
   autoZone.sort((a: any, b: any) => a.autoPriority - b.autoPriority);
   defaultZone.sort((a: any, b: any) => a.initialPos - b.initialPos);
@@ -103,16 +87,21 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
     <tr key={o.slug} className={`${!o.isActive ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50/50'} transition-all`}>
       <td className="px-6 py-4">
         <div className="font-bold text-gray-900">{o.displayName}</div>
-        {!o.hasSlug && <span className="text-[10px] text-gray-400 font-mono tracking-tighter">NO SLUG: {o.slug}</span>}
+        {!o.hasSlug && <span className="text-[10px] text-gray-400 font-mono">NO SLUG: {o.slug}</span>}
       </td>
       <td className="px-6 py-4 font-mono text-blue-600 text-center text-sm font-bold">#{o.currentPos}</td>
       <td className="px-6 py-4 text-center">
-        <input 
-          type="checkbox" 
-          checked={o.isActive} 
-          onChange={(e) => updateOffer(o.slug, o.docId, { is_active: e.target.checked })}
-          className="w-5 h-5 rounded border-gray-300 text-blue-600 cursor-pointer"
-        />
+        <button
+          type="button"
+          onClick={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
+          className={`px-4 py-2 rounded font-mono text-[10px] font-black transition-all border shadow-sm ${
+            o.isActive 
+            ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-600 hover:text-white' 
+            : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-600 hover:text-white'
+          }`}
+        >
+          {o.isActive ? 'TRUE' : 'FALSE'}
+        </button>
       </td>
       <td className="px-6 py-4 text-center">
         <input 
@@ -127,7 +116,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
              const val = e.target.value === '' ? null : parseInt(e.target.value);
              setOffers((curr: any[]) => curr.map((item: any) => item.slug === o.slug ? { ...item, manualPin: val } : item));
           }}
-          className="p-2 border border-gray-300 rounded w-16 text-center font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+          className="p-2 border border-gray-300 rounded w-16 text-center font-mono focus:border-blue-500 focus:ring-1 outline-none"
         />
       </td>
       <td className="px-6 py-4 font-mono text-center text-gray-400 text-xs">{o.autoPriority || '—'}</td>
@@ -139,12 +128,11 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
     <div className="space-y-8">
       <div className="bg-gray-50 p-6 rounded border border-gray-100 flex justify-between items-center">
         <div>
-          <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">Основной режим EPC</label>
+          <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest">Метод EPC</label>
           <select 
             value={epcMode} 
             onChange={(e) => updateEpcMode(e.target.value)}
-            disabled={saving}
-            className="p-3 bg-white border border-gray-200 rounded font-bold min-w-[200px] cursor-pointer outline-none"
+            className="p-3 bg-white border border-gray-200 rounded font-bold min-w-[200px] cursor-pointer outline-none shadow-sm"
           >
             <option value="global">Глобальный (global)</option>
             <option value="per_app">По приложению (per_app)</option>
@@ -153,40 +141,33 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
         <button 
           onClick={recalculate}
           disabled={saving}
-          className="px-6 py-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors uppercase text-xs tracking-wider"
+          className="px-6 py-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors uppercase text-xs tracking-wider shadow-md active:scale-95"
         >
-          {saving ? 'Выполнение...' : 'Пересчитать сейчас'}
+          {saving ? 'Считаю...' : 'Пересчитать сейчас'}
         </button>
       </div>
 
-      <div className="border border-gray-100 rounded overflow-hidden shadow-sm">
+      <div className="border border-gray-100 rounded overflow-hidden shadow-sm bg-white">
         <table className="w-full text-left text-sm text-black">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest">
               <th className="px-6 py-4">Оффер (Title)</th>
-              <th className="px-6 py-4 text-center">Итоговая Поз.</th>
-              <th className="px-6 py-4 text-center">Активен</th>
+              <th className="px-6 py-4 text-center">Витрина</th>
+              <th className="px-6 py-4 text-center">Статус</th>
               <th className="px-6 py-4 text-center text-blue-600">Manual PIN</th>
-              <th className="px-6 py-4 text-center">Auto Pri</th>
-              <th className="px-6 py-4 text-center">Default</th>
+              <th className="px-6 py-4 text-center">Auto</th>
+              <th className="px-6 py-4 text-center">Orig</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50 bg-white">
+          <tbody className="divide-y divide-gray-50">
             {pinZone.map(renderRow)}
-            {pinZone.length > 0 && (
-              <tr><td colSpan={6} className="bg-blue-50/30 border-y border-blue-100 py-1 text-[9px] text-center font-bold text-blue-400 tracking-widest">END OF PIN ZONE</td></tr>
-            )}
-
+            {pinZone.length > 0 && <tr><td colSpan={6} className="bg-blue-50/20 py-1 text-[8px] text-center font-bold text-blue-300 tracking-[0.2em] uppercase">Manual Priority End</td></tr>}
             {autoZone.map(renderRow)}
-            {autoZone.length > 0 && (
-              <tr><td colSpan={6} className="bg-green-50/30 border-y border-green-100 py-1 text-[9px] text-center font-bold text-green-400 tracking-widest">END OF AUTO ZONE</td></tr>
-            )}
-
+            {autoZone.length > 0 && <tr><td colSpan={6} className="bg-green-50/20 py-1 text-[8px] text-center font-bold text-green-300 tracking-[0.2em] uppercase">EPC Logic End</td></tr>}
             {defaultZone.map(renderRow)}
-            
             {inactiveZone.length > 0 && (
               <>
-                <tr><td colSpan={6} className="bg-gray-100 border-y border-gray-200 py-1 text-[9px] text-center font-bold text-gray-400 tracking-widest uppercase">Inactive Offers (Hidden)</td></tr>
+                <tr><td colSpan={6} className="bg-gray-50 py-1 text-[8px] text-center font-bold text-gray-300 tracking-[0.2em] uppercase">Hidden Offers</td></tr>
                 {inactiveZone.map(renderRow)}
               </>
             )}
