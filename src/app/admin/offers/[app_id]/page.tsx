@@ -6,6 +6,9 @@ import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
 import OfferSettings from '@/components/OfferSettings';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 type Params = Promise<{ app_id: string }>;
 
 export default async function AppSettingsPage({ params }: { params: Params }) {

@@ -6,6 +6,9 @@ import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
 import RecalculateButton from '@/components/RecalculateButton';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdminPage() {
   let authenticated = false;
   let errorMsg = '';
