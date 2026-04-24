@@ -5,6 +5,10 @@ import { APP_MAPPING } from '@/config/mapping';
 
 export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const filterAppId = searchParams.get('app_id');
+
+    // 1. Синхронизация данных Keitaro (всегда для всех, чтобы были актуальные EPC)
     const protocol = request.url.startsWith('https') ? 'https' : 'http';
     const host = request.headers.get('host');
     const syncRes = await fetch(`${protocol}://${host}/api/keitaro/sync`, { cache: 'no-store' });
@@ -15,29 +19,28 @@ export async function GET(request: Request) {
     }
 
     let firestore;
-    try {
-      firestore = getFirestore();
-    } catch (e: any) {
-      return NextResponse.json({ ok: false, error: e.message });
+    try { firestore = getFirestore(); } catch (e: any) { 
+        return NextResponse.json({ ok: false, error: e.message }); 
     }
 
     const results = [];
+    const appsToProcess = filterAppId ? APP_MAPPING.filter(a => a.appId === filterAppId) : APP_MAPPING;
 
-    for (const app of APP_MAPPING) {
-      const overrideModeRes = await sql`
-        SELECT epc_mode FROM offer_overrides WHERE app_id = ${app.appId} LIMIT 1
-      `;
+    for (const app of appsToProcess) {
+      // a. Режим EPC
+      const overrideModeRes = await sql`SELECT epc_mode FROM offer_overrides WHERE app_id = ${app.appId} AND offer_slug = 'SYSTEM_DEFAULT' LIMIT 1`;
       const epcMode = overrideModeRes[0]?.epc_mode || 'global';
 
+      // b. Статистика EPC
       let epcStats;
       if (epcMode === 'per_app') {
         epcStats = await sql`SELECT offer_slug, epc FROM per_app_epc_7d WHERE app_name = ${app.name}`;
       } else {
         epcStats = await sql`SELECT offer_slug, epc FROM global_epc_7d`;
       }
-      
       const epcMap = new Map(epcStats.map((s: any) => [s.offer_slug, parseFloat(s.epc)]));
 
+      // c. Firestore docs
       const loansRef = firestore.collection(app.appId).doc('ru').collection('loans');
       const snapshot = await loansRef.get();
       
@@ -45,74 +48,74 @@ export async function GET(request: Request) {
         const data = doc.data();
         const url = data.url || '';
         let slug = '';
-        try {
-          const urlObj = new URL(url);
-          slug = urlObj.searchParams.get('aff_sub3') || '';
-        } catch (e) {}
-
-        return { id: doc.id, slug, data };
+        try { slug = new URL(url).searchParams.get('aff_sub3') || ''; } catch (e) {}
+        return { id: doc.id, slug, data, currentPos: data[app.sortField] || 999 };
       });
 
-      const appOverrides = await sql`
-        SELECT offer_slug, pinned_position FROM offer_overrides WHERE app_id = ${app.appId}
-      `;
+      // d. Overrides
+      const appOverrides = await sql`SELECT offer_slug, manual_pin, auto_priority FROM offer_overrides WHERE app_id = ${app.appId}`;
       const overridesMap = new Map(appOverrides.map((o: any) => [o.offer_slug, o]));
 
-      const activeOffers: any[] = [];
+      // e. Фильтрация и разделение на зоны
+      const activeOffers = offers.filter(o => o.data.active !== false);
 
-      for (const o of offers) {
-        // Источник правды для активности - Firestore
-        const isActive = o.data.active !== false; 
-        
+      const pinZone: any[] = [];
+      const autoZone: any[] = [];
+      const defaultZone: any[] = [];
+
+      activeOffers.forEach(o => {
         const ov = overridesMap.get(o.slug || o.id);
-        const pinnedPos = ov ? ov.pinned_position : null;
-        const epc = o.slug ? (epcMap.get(o.slug) || 0) : -1;
+        const epc = o.slug ? epcMap.get(o.slug) : null;
 
-        if (isActive) {
-          activeOffers.push({ ...o, pinnedPos, epc });
+        if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) {
+          pinZone.push({ ...o, manual_pin: ov.manual_pin });
+        } else if (o.slug && epc !== undefined && epc !== null) {
+          autoZone.push({ ...o, epc });
+        } else {
+          defaultZone.push(o);
         }
-      }
-
-      const allZeroEpc = activeOffers.length > 0 && activeOffers.every(o => o.epc <= 0);
-      if (allZeroEpc) {
-        results.push({ app_id: app.appId, skipped: true, reason: "all_epc_zero" });
-        continue;
-      }
-
-      const pinned = activeOffers.filter(o => o.pinnedPos !== null);
-      const sortable = activeOffers.filter(o => o.pinnedPos === null);
-
-      sortable.sort((a, b) => {
-        if (a.slug && !b.slug) return -1;
-        if (!a.slug && b.slug) return 1;
-        return b.epc - a.epc;
       });
 
-      const finalOrdered = new Array(activeOffers.length).fill(null);
+      // f. Сортировка и расчет приоритетов
+      // 1. PIN-зона: по manual_pin ASC
+      pinZone.sort((a, b) => a.manual_pin - b.manual_pin);
+
+      // 2. AUTO-зона: по EPC DESC, затем присваиваем auto_priority
+      autoZone.sort((a, b) => b.epc - a.epc);
       
-      pinned.forEach(o => {
-        const pos = o.pinnedPos - 1;
-        if (pos >= 0 && pos < finalOrdered.length) {
-          finalOrdered[pos] = o;
-        }
+      const autoUpdates = [];
+      autoZone.forEach((o, i) => {
+        o.auto_priority = i + 1;
+        autoUpdates.push({ slug: o.slug, priority: o.auto_priority });
       });
 
-      let sIdx = 0;
-      for (let i = 0; i < finalOrdered.length; i++) {
-        if (finalOrdered[i] === null && sIdx < sortable.length) {
-          finalOrdered[i] = sortable[sIdx++];
-        }
+      // Сохраняем auto_priority в БД (одной транзакцией или пачкой)
+      if (autoUpdates.length > 0) {
+          const queries = autoUpdates.map(u => sql`
+            INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
+            VALUES (${app.appId}, ${u.slug}, ${u.priority})
+            ON CONFLICT (app_id, offer_slug) DO UPDATE SET auto_priority = EXCLUDED.auto_priority
+          `);
+          await sql.transaction(queries);
       }
 
-      const resultList = finalOrdered.filter(o => o !== null);
+      // 3. DEFAULT-зона: по текущей позиции в Firestore для стабильности
+      defaultZone.sort((a, b) => a.currentPos - b.currentPos);
 
+      // g. Склейка и обновление Firestore
+      const finalList = [...pinZone, ...autoZone, ...defaultZone];
       const batch = firestore.batch();
-      const reportOffers: any[] = [];
+      const reportOffers = [];
 
-      resultList.forEach((o, index) => {
-        const pos = index + 1;
-        batch.update(loansRef.doc(o.id), { [app.sortField]: pos });
-        reportOffers.push({ slug: o.slug || o.data.title || o.id, new_position: pos, epc: o.epc });
+      finalList.forEach((o, index) => {
+        const newPos = index + 1;
+        batch.update(loansRef.doc(o.id), { [app.sortField]: newPos });
+        reportOffers.push({ 
+           slug: o.slug || o.data.title || o.id, 
+           new_position: newPos, 
+           zone: o.manual_pin ? 'PIN' : (o.auto_priority ? 'AUTO' : 'DEFAULT'),
+           epc: o.epc || 0
+        });
       });
 
       await batch.commit();

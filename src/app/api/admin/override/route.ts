@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { app_id, offer_slug, doc_id, is_active, pinned_position, epc_mode } = await request.json();
+    const { app_id, offer_slug, doc_id, is_active, manual_pin, epc_mode } = await request.json();
 
     if (!app_id) {
        return NextResponse.json({ error: 'app_id is required' }, { status: 400 });
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     let firestore;
     try { firestore = getFirestore(); } catch(e) {}
 
-    // 1. Обновляем статус активности напрямую в Firestore (если передан)
+    // 1. Обновляем статус активности напрямую в Firestore
     if (typeof is_active === 'boolean' && doc_id && firestore) {
       const loanRef = firestore.collection(app_id).doc('ru').collection('loans').doc(doc_id);
       await loanRef.update({ active: is_active });
@@ -41,13 +41,26 @@ export async function POST(request: Request) {
       `;
     }
 
-    // 3. Обновляем pinned_position в Postgres
-    if (offer_slug && offer_slug !== 'SYSTEM_DEFAULT' && pinned_position !== undefined) {
+    // 3. Обновляем manual_pin в Postgres
+    if (offer_slug && offer_slug !== 'SYSTEM_DEFAULT' && manual_pin !== undefined) {
+      // Проверка на дубликат пина (кроме ситуации удаления пина NULL)
+      if (manual_pin !== null) {
+        const existing = await sql`
+          SELECT offer_slug FROM offer_overrides 
+          WHERE app_id = ${app_id} AND manual_pin = ${manual_pin} AND offer_slug != ${offer_slug}
+        `;
+        if (existing.length > 0) {
+          return NextResponse.json({ 
+            error: `Позиция ${manual_pin} уже занята оффером ${existing[0].offer_slug}` 
+          }, { status: 400 });
+        }
+      }
+
       await sql`
-        INSERT INTO offer_overrides (app_id, offer_slug, pinned_position)
-        VALUES (${app_id}, ${offer_slug}, ${pinned_position ?? null})
+        INSERT INTO offer_overrides (app_id, offer_slug, manual_pin)
+        VALUES (${app_id}, ${offer_slug}, ${manual_pin})
         ON CONFLICT (app_id, offer_slug) DO UPDATE SET 
-          pinned_position = EXCLUDED.pinned_position
+          manual_pin = EXCLUDED.manual_pin
       `;
     }
 

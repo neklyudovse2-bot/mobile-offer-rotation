@@ -18,7 +18,7 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
   const app = APP_MAPPING.find(a => a.appId === app_id);
   if (!app) return <div>App not found</div>;
 
-  const overrides = await sql`SELECT offer_slug, pinned_position, epc_mode FROM offer_overrides WHERE app_id = ${app.appId}`;
+  const overrides = await sql`SELECT offer_slug, manual_pin, auto_priority, epc_mode FROM offer_overrides WHERE app_id = ${app.appId}`;
   const appConfig = overrides.find((o: any) => o.offer_slug === 'SYSTEM_DEFAULT');
 
   let firestore;
@@ -26,7 +26,7 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
 
   let initialOffers: any[] = [];
   if (firestore) {
-    const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans').orderBy(app.sortField).get();
+    const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans').get();
     initialOffers = snapshot.docs.map(doc => {
       const data = doc.data();
       let slug = '';
@@ -41,23 +41,28 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
       
       return {
         slug: key,
-        docId: doc.id, // Передаем ID документа для обновлений
+        docId: doc.id,
         displayName: data.title || doc.id,
         currentPos: data[app.sortField],
-        isActive: data.active !== false, // Источник правды - Firestore
-        pinnedPos: ov ? ov.pinned_position : null,
+        initialPos: data[app.sortField], // Информационный столбец
+        isActive: data.active !== false,
+        manualPin: ov?.manual_pin ?? null,
+        autoPriority: ov?.auto_priority ?? null,
         hasSlug: !!slug
       };
     });
+
+    // Сортировка по итоговой позиции в Firestore
+    initialOffers.sort((a, b) => a.currentPos - b.currentPos);
   }
 
   return (
     <div className="min-h-screen bg-white text-black p-8">
       <div className="max-w-4xl mx-auto">
-        <Link href="/admin" className="text-blue-600 text-sm mb-4 inline-block">← Назад</Link>
+        <Link href="/admin" className="text-blue-600 text-sm mb-4 inline-block">← Назад на дашборд</Link>
         <div className="mb-8 border-b-2 border-black pb-4">
           <h1 className="text-4xl font-black uppercase tracking-tighter">Настройки: {app.name}</h1>
-          <p className="text-gray-400 font-mono text-sm mt-1">{app.appId}</p>
+          <p className="text-gray-400 font-mono text-sm mt-1">{app.appId} | Sorting zone logic activated</p>
         </div>
 
         <OfferSettings 
