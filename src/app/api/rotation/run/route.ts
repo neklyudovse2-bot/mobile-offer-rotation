@@ -10,8 +10,7 @@ export async function GET(request: Request) {
 
     const protocol = request.url.startsWith('https') ? 'https' : 'http';
     const host = request.headers.get('host');
-    const syncUrl = `${protocol}://${host}/api/keitaro/sync`;
-    const syncRes = await fetch(syncUrl, { cache: 'no-store' });
+    const syncRes = await fetch(`${protocol}://${host}/api/keitaro/sync`, { cache: 'no-store' });
     
     if (!syncRes.ok) {
       const errorData = await syncRes.json();
@@ -83,20 +82,20 @@ export async function GET(request: Request) {
 
       for (const o of autoZone) {
         console.log('[ROTATION] before auto_priority UPSERT for', o.slug, 'new auto_priority:', o.auto_priority);
-        const result = await sql`
+        const insertResult = await sql`
           INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
           VALUES (${app.appId}, ${o.slug}, ${o.auto_priority})
           ON CONFLICT (app_id, offer_slug) DO UPDATE SET auto_priority = EXCLUDED.auto_priority
           RETURNING *
         `;
-        console.log('[ROTATION] UPSERT result:', JSON.stringify(result));
+        console.log('[ROTATION] UPSERT result:', JSON.stringify(insertResult));
       }
 
       defaultZone.sort((a, b) => a.currentPos - b.currentPos);
 
       const finalList = [...pinZone, ...autoZone, ...defaultZone];
       const batch = firestore.batch();
-      const reportOffers = [];
+      const reportOffers: any[] = [];
 
       finalList.forEach((o, index) => {
         const pos = index + 1;
