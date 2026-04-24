@@ -55,37 +55,21 @@ export async function GET(request: Request) {
       const appOverrides = await sql`SELECT offer_slug, manual_pin, auto_priority FROM offer_overrides WHERE app_id = ${app.appId}`;
       const overridesMap = new Map(appOverrides.map((o: any) => [o.offer_slug, o]));
 
-      console.log('[ROTATION] overridesMap contents:');
-      for (const [key, value] of (overridesMap as any).entries()) {
-        console.log(` "${key}" -> manual_pin=${value.manual_pin} (type: ${typeof value.manual_pin}), auto_priority=${value.auto_priority}`);
-      }
-
       const activeOffers = offers.filter(o => o.data.active !== false);
-      
-      console.log('[ROTATION] activeOffers slugs:');
-      activeOffers.forEach(o => {
-        console.log(` slug="${o.slug}", id="${o.id}"`);
-      });
 
       const pinZone: any[] = [];
       const autoZone: any[] = [];
       const defaultZone: any[] = [];
 
       activeOffers.forEach(o => {
-        const lookupKey = o.slug || o.id;
-        const ov = overridesMap.get(lookupKey);
+        const ov = overridesMap.get(o.slug || o.id);
         const epc = o.slug ? epcMap.get(o.slug) : null;
 
-        console.log(`[ZONE] "${o.slug}" lookup="${lookupKey}" override=${JSON.stringify(ov)} epc=${epc}`);
-
         if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) {
-          console.log(` -> PIN zone (pin=${ov.manual_pin})`);
           pinZone.push({ ...o, manual_pin: ov.manual_pin });
         } else if (o.slug && epc !== undefined && epc !== null) {
-          console.log(` -> AUTO zone (epc=${epc})`);
           autoZone.push({ ...o, epc });
         } else {
-          console.log(` -> DEFAULT zone`);
           defaultZone.push(o);
         }
       });
@@ -98,18 +82,21 @@ export async function GET(request: Request) {
       });
 
       for (const o of autoZone) {
-        await sql`
+        console.log('[ROTATION] before auto_priority UPSERT for', o.slug, 'new auto_priority:', o.auto_priority);
+        const result = await sql`
           INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
           VALUES (${app.appId}, ${o.slug}, ${o.auto_priority})
           ON CONFLICT (app_id, offer_slug) DO UPDATE SET auto_priority = EXCLUDED.auto_priority
+          RETURNING *
         `;
+        console.log('[ROTATION] UPSERT result:', JSON.stringify(result));
       }
 
       defaultZone.sort((a, b) => a.currentPos - b.currentPos);
 
       const finalList = [...pinZone, ...autoZone, ...defaultZone];
       const batch = firestore.batch();
-      const reportOffers: any[] = [];
+      const reportOffers = [];
 
       finalList.forEach((o, index) => {
         const pos = index + 1;
