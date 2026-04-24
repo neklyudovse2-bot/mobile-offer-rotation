@@ -114,15 +114,11 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       <td className="px-6 py-4 text-center">
         <input 
           type="number" 
-          value={o.manualPin === null ? '' : o.manualPin}
+          defaultValue={o.manualPin === null ? '' : o.manualPin}
           placeholder="—"
           onBlur={(e) => {
              const val = e.target.value === '' ? null : parseInt(e.target.value);
-             if (val !== o.manualPin) updateOffer(o.slug, o.docId, { manual_pin: val });
-          }}
-          onChange={(e) => {
-             const val = e.target.value === '' ? null : parseInt(e.target.value);
-             setOffers((curr: any[]) => curr.map((item: any) => item.slug === o.slug ? { ...item, manualPin: val } : item));
+             updateOffer(o.slug, o.docId, { manual_pin: val });
           }}
           className="p-2 border border-gray-300 rounded w-16 text-center font-mono focus:border-blue-500 focus:ring-1 outline-none shadow-inner"
         />
@@ -133,7 +129,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 text-black">
       <div className="bg-gray-50 p-6 rounded border border-gray-100 flex justify-between items-center shadow-sm">
         <div>
           <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest leading-none">Метод EPC</label>
@@ -156,7 +152,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
       </div>
 
       <div className="border border-gray-100 rounded-lg overflow-hidden shadow-sm bg-white">
-        <table className="w-full text-left text-sm text-black">
+        <table className="w-full text-left text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none">
               <th className="px-6 py-4">Оффер (Title)</th>
