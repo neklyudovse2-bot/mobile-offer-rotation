@@ -4,7 +4,6 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
-  // Инициализируем state только один раз через Ref
   const initialRef = useRef({ offers: initialOffers, epcMode: initialEpcMode });
   const [offers, setOffers] = useState(initialRef.current.offers);
   const [epcMode, setEpcMode] = useState(initialRef.current.epcMode);
@@ -29,11 +28,11 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const updateOffer = async (slug: string, docId: string, fields: any) => {
+    console.log('[CLIENT] updateOffer called', { slug, docId, fields });
     let prev: any[] = [];
     
-    // Оптимистичное обновление с правильным маппингом полей
     setOffers((current: any[]) => {
-      prev = current;
+      prev = [...current];
       return current.map((o: any) => 
         o.slug === slug ? { 
           ...o, 
