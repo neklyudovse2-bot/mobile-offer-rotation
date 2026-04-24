@@ -1,20 +1,23 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
   const [epcMode, setEpcMode] = useState(initialEpcMode);
   const [offers, setOffers] = useState(initialOffers);
   const [saving, setSaving] = useState(false);
+  const router = useRouter();
 
   const updateEpcMode = async (mode: string) => {
     setEpcMode(mode);
     setSaving(true);
-    await fetch('/api/admin/override', {
+    const res = await fetch('/api/admin/override', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ app_id: app.appId, epc_mode: mode })
     });
+    if (res.ok) router.refresh();
     setSaving(false);
   };
 
@@ -22,7 +25,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
     const updated = offers.map((o: any) => o.slug === slug ? { ...o, ...fields } : o);
     setOffers(updated);
     setSaving(true);
-    await fetch('/api/admin/override', {
+    const res = await fetch('/api/admin/override', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
@@ -32,6 +35,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           ...fields 
       })
     });
+    if (res.ok) router.refresh();
     setSaving(false);
   };
 
