@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 
-export default function RecalculateButton({ fullWidth = false }: { fullWidth?: boolean }) {
+export default function RecalculateButton() {
   const [loading, setLoading] = useState(false);
 
   const handleClick = async () => {
@@ -29,10 +29,10 @@ export default function RecalculateButton({ fullWidth = false }: { fullWidth?: b
     <button 
       onClick={handleClick}
       disabled={loading}
-      className={`flex items-center justify-center gap-3 py-4 rounded-xl border border-slate-200 bg-white text-slate-800 font-bold hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 transition-all active:scale-[0.99] group shadow-sm uppercase text-[11px] tracking-[0.2em] disabled:opacity-50 disabled:cursor-not-allowed ${fullWidth ? 'w-full' : 'px-12'}`}
+      className={`px-8 py-2.5 rounded-md bg-[#3e60d5] text-white text-xs font-bold hover:bg-[#324ea7] transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-50`}
     >
-      <RefreshCw className={`w-4 h-4 transition-colors group-hover:text-blue-500 ${loading ? 'animate-spin text-blue-500' : 'text-slate-400'}`} />
-      {loading ? 'Синхронизация...' : 'Пересчитать все приложения'}
+      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+      {loading ? 'Синхронизация...' : 'Запустить'}
     </button>
   );
 }
