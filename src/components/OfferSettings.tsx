@@ -1,14 +1,65 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { Settings, BarChart3, RefreshCw, Pin, TrendingUp, Circle, EyeOff } from 'lucide-react';
+
+function PinEditor({ 
+  initialValue, 
+  onSave 
+}: { 
+  initialValue: number | null;
+  onSave: (val: number | null) => void;
+}) {
+  const [value, setValue] = useState(
+    initialValue === null || initialValue === undefined ? '' : String(initialValue)
+  );
+  const [saved, setSaved] = useState(true);
+
+  // Синхронизируем при изменении initialValue извне
+  useEffect(() => {
+    setValue(initialValue === null || initialValue === undefined ? '' : String(initialValue));
+    setSaved(true);
+  }, [initialValue]);
+
+  const handleSave = () => {
+    const num = value === '' ? null : parseInt(value);
+    // Null если пусто, 0, или NaN
+    const clean = (num === null || num === 0 || isNaN(num)) ? null : num;
+    onSave(clean);
+    setSaved(true);
+  };
+
+  return (
+    <div className="flex items-center gap-1 justify-center">
+      <input 
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={value}
+        placeholder="—"
+        onChange={(e) => {
+          setValue(e.target.value.replace(/[^0-9]/g, ''));
+          setSaved(false);
+        }}
+        className="w-14 px-2 py-1.5 text-center text-sm rounded-md border border-gray-300 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all font-mono shadow-sm"
+      />
+      {!saved && (
+        <button 
+          onClick={handleSave}
+          className="px-2.5 py-1.5 text-xs font-black bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-all active:scale-90 flex items-center justify-center shadow-sm"
+        >
+          ✓
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
-  // Инициализируем state только один раз через Ref
   const initialRef = useRef({ offers: initialOffers, epcMode: initialEpcMode });
   const [offers, setOffers] = useState(initialRef.current.offers);
   const [epcMode, setEpcMode] = useState(initialRef.current.epcMode);
-  
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
@@ -29,6 +80,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const updateOffer = async (slug: string, docId: string, fields: any) => {
+    console.log('[CLIENT] updateOffer called', { slug, docId, fields });
     let prev: any[] = [];
     
     setOffers((current: any[]) => {
@@ -66,6 +118,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const recalculate = async () => {
+    if (!confirm('Пересчитать ротацию для этого приложения?')) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/recalculate?app_id=${app.appId}`, { method: 'POST' });
@@ -91,40 +144,45 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   defaultZone.sort((a: any, b: any) => a.initialPos - b.initialPos);
 
   const renderRow = (o: any) => (
-    <tr key={o.slug} className={`${!o.isActive ? 'bg-gray-50 opacity-60' : 'hover:bg-gray-50/50'} transition-all`}>
-      <td className="px-6 py-4 text-black">
-        <div className="font-bold text-gray-900">{o.displayName}</div>
-        {!o.hasSlug && <span className="text-[10px] text-gray-400 font-mono tracking-tighter text-black">NO SLUG: {o.slug}</span>}
+    <tr key={o.slug} className={`${!o.isActive ? 'bg-[#f8f9fa] opacity-60' : 'hover:bg-slate-50'} transition-all`}>
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <Avatar slug={o.slug} />
+          <div>
+            <div className="text-sm font-semibold text-[#313a46]">{o.displayName}</div>
+            <div className="text-[10px] text-[#98a6ad] font-mono leading-none mt-0.5">{o.slug}</div>
+          </div>
+        </div>
       </td>
-      <td className="px-6 py-4 font-mono text-blue-600 text-center text-sm font-bold text-black border-black">#{o.currentPos}</td>
-      <td className="px-6 py-4 text-center">
-        <select
-          value={o.isActive ? 'true' : 'false'}
-          onChange={(e) => updateOffer(o.slug, o.docId, { is_active: e.target.value === 'true' })}
-          className={`px-3 py-1 rounded font-mono text-[10px] font-black border-2 cursor-pointer outline-none transition-colors ${
-            o.isActive 
-            ? 'bg-green-50 text-green-700 border-green-200 focus:border-green-400' 
-            : 'bg-red-50 text-red-700 border-red-200 focus:border-red-400'
-          }`}
+      <td className="px-5 py-3.5 text-center">
+        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${
+          o.isActive ? (
+            o.manualPin ? 'bg-[#6b5eae] text-white shadow-sm' : 
+            o.autoPriority ? 'bg-[#3e60d5] text-white shadow-sm' :
+            'bg-[#98a6ad] text-white'
+          ) : 'bg-[#e9ebec] text-[#98a6ad]'
+        }`}>
+          #{o.currentPos}
+        </span>
+      </td>
+      <td className="px-5 py-3.5 text-center">
+        <button
+          onClick={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
+          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-all border
+            ${o.isActive 
+              ? 'bg-[#ebf5f3] text-[#1abc9c] border-[#1abc9c]/20 hover:bg-[#d4ebe4]' 
+              : 'bg-[#fcebee] text-[#f1556c] border-[#f1556c]/20 hover:bg-[#f5d4da]'
+            }`}
         >
-          <option value="true">TRUE</option>
-          <option value="false">FALSE</option>
-        </select>
+          <span className={`w-1.5 h-1.5 rounded-full ${o.isActive ? 'bg-[#1abc9c]' : 'bg-[#f1556c]'}`} />
+          {o.isActive ? 'Активен' : 'Скрыт'}
+        </button>
       </td>
-      <td className="px-6 py-4 text-center">
-        <input 
-          type="number" 
-          value={o.manualPin === null || o.manualPin === undefined ? '' : o.manualPin}
-          placeholder="—"
-          onChange={(e) => {
-            const val = e.target.value === '' ? null : parseInt(e.target.value);
-            setOffers((curr: any[]) => 
-              curr.map((item: any) => item.slug === o.slug ? { ...item, manualPin: val } : item)
-            );
-          }}
-          onBlur={(e) => {
-            console.log('[PIN onBlur] raw value:', e.target.value, 'type:', typeof e.target.value);
-            const val = e.target.value === '' ? null : parseInt(e.target.value);
+      <td className="px-5 py-3.5 text-center">
+        <PinEditor 
+          initialValue={o.manualPin}
+          onSave={(newValue) => {
+            console.log('[PIN SAVE]', { slug: o.slug, newValue });
             fetch('/api/admin/override', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -132,74 +190,130 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
                 app_id: app.appId, 
                 offer_slug: o.slug, 
                 doc_id: o.docId, 
-                manual_pin: val 
+                manual_pin: newValue 
               })
             }).then(res => {
               if (!res.ok) {
-                res.json().then(data => {
-                  alert(data.error || 'Ошибка сохранения');
-                });
+                res.json().then(data => alert(data.error || 'Ошибка'));
+              } else {
+                setOffers((curr: any[]) => 
+                  curr.map((item: any) => 
+                    item.slug === o.slug ? { ...item, manualPin: newValue } : item
+                  )
+                );
               }
             });
           }}
-          className="p-2 border border-gray-300 rounded w-16 text-center font-mono focus:border-blue-500 focus:ring-1 outline-none shadow-inner text-black"
         />
       </td>
-      <td className="px-6 py-4 font-mono text-center text-gray-400 text-xs text-black border-black">{o.autoPriority || '—'}</td>
-      <td className="px-6 py-4 font-mono text-center text-gray-400 text-[10px] text-black border-black">{o.initialPos}</td>
+      <td className="px-5 py-3.5 text-center text-xs font-semibold text-[#98a6ad] font-mono tabular-nums">
+        {o.autoPriority || '—'}
+      </td>
+      <td className="px-5 py-3.5 text-center text-[11px] text-[#98a6ad] font-mono tabular-nums">
+        {o.initialPos}
+      </td>
     </tr>
   );
 
   return (
-    <div className="space-y-8 text-black border-black">
-      <div className="bg-gray-50 p-6 rounded border border-gray-100 flex justify-between items-center shadow-sm">
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
         <div>
-          <label className="block text-[10px] font-black uppercase text-gray-400 mb-1 tracking-widest leading-none">Метод EPC</label>
+          <label className="block text-[11px] font-bold text-[#6c757d] uppercase tracking-wider mb-2">Метод ротации (EPC Mode)</label>
           <select 
             value={epcMode} 
             onChange={(e) => updateEpcMode(e.target.value)}
-            className="p-3 bg-white border border-gray-200 rounded font-bold min-w-[200px] cursor-pointer outline-none shadow-sm hover:border-gray-400 transition-colors text-black"
+            className="w-64 px-3 py-2 rounded-md border border-[#e9ebec] text-sm text-[#313a46] focus:outline-none focus:border-[#3e60d5] focus:ring-2 focus:ring-[#e8edfa] bg-white transition-all font-medium cursor-pointer"
           >
-            <option value="global">Глобальный (global)</option>
-            <option value="per_app">По приложению (per_app)</option>
+            <option value="global">Глобальный (Глобально)</option>
+            <option value="per_app">По приложению (Lokal)</option>
           </select>
         </div>
         <button 
           onClick={recalculate}
           disabled={saving}
-          className="px-6 py-3 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 disabled:opacity-50 transition-all uppercase text-xs tracking-wider shadow-md active:scale-95"
+          className="flex items-center gap-2 px-6 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-semibold hover:bg-[#324ea7] transition-all shadow-md active:scale-95 disabled:opacity-50"
         >
-          {saving ? 'Выполнение...' : 'Пересчитать сейчас'}
+          <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
+          {saving ? 'Пересчет...' : 'Пересчитать сейчас'}
         </button>
       </div>
 
-      <div className="border border-gray-100 rounded-lg overflow-hidden shadow-sm bg-white">
-        <table className="w-full text-left text-sm">
+      <div className="bg-white rounded-lg border border-[#e9ebec] overflow-hidden shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
+        <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-100 text-[10px] font-black uppercase text-gray-400 tracking-widest leading-none text-black font-bold">
-              <th className="px-6 py-4">Оффер (Title)</th>
-              <th className="px-6 py-4 text-center">Витрина</th>
-              <th className="px-6 py-4 text-center">Статус (Active)</th>
-              <th className="px-6 py-4 text-center text-blue-600">Manual PIN</th>
-              <th className="px-6 py-4 text-center">Auto</th>
-              <th className="px-6 py-4 text-center">Orig</th>
+            <tr className="bg-[#f5f6f8] border-b border-[#e9ebec]">
+              <th className="px-5 py-3 text-left text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Оффер</th>
+              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Витрина</th>
+              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Статус</th>
+              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider text-[#3e60d5]">Manual PIN</th>
+              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Auto</th>
+              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Orig</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50 border-black">
+          <tbody className="divide-y divide-[#f0f1f2]">
+            {/* PIN ZONE */}
+            {pinZone.length > 0 && <ZoneRows zone="pin" count={pinZone.length} />}
             {pinZone.map(renderRow)}
-            {pinZone.length > 0 && <tr><td colSpan={6} className="bg-blue-50/20 py-1 text-[8px] text-center font-bold text-blue-300 tracking-[0.2em] uppercase leading-none">Manual Priority End</td></tr>}
+
+            {/* AUTO ZONE */}
+            <ZoneRows zone="auto" count={autoZone.length} />
             {autoZone.map(renderRow)}
-            {autoZone.length > 0 && <tr><td colSpan={6} className="bg-green-50/20 py-1 text-[8px] text-center font-bold text-green-300 tracking-[0.2em] uppercase leading-none">EPC Logic End</td></tr>}
+
+            {/* DEFAULT ZONE */}
+            {defaultZone.length > 0 && <ZoneRows zone="default" count={defaultZone.length} />}
             {defaultZone.map(renderRow)}
-            {inactiveZone.length > 0 && (
-              <>
-                <tr><td colSpan={6} className="bg-gray-50 py-1 text-[8px] text-center font-bold text-gray-300 tracking-[0.2em] uppercase leading-none">Hidden Offers</td></tr>
-                {inactiveZone.map(renderRow)}
-              </>
-            )}
+
+            {/* INACTIVE */}
+            {inactiveZone.length > 0 && <ZoneRows zone="hidden" count={inactiveZone.length} />}
+            {inactiveZone.map(renderRow)}
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+function ZoneRows({ zone, count }: { zone: string, count: number }) {
+  const styles: any = {
+    pin: { icon: Pin, bg: 'bg-[#e8e6f1]', text: 'text-[#6b5eae]', label: 'PIN-ЗОНА' },
+    auto: { icon: TrendingUp, bg: 'bg-[#e8edfa]', text: 'text-[#3e60d5]', label: 'AUTO-ЗОНА' },
+    default: { icon: Circle, bg: 'bg-[#f0f1f2]', text: 'text-[#98a6ad]', label: 'DEFAULT-ЗОНА' },
+    hidden: { icon: EyeOff, bg: 'bg-[#fcebee]', text: 'text-[#f1556c]', label: 'СКРЫТЫЕ' },
+  };
+  const { icon: Icon, bg, text, label } = styles[zone];
+  return (
+    <tr className="bg-[#f8f9fa] border-y border-[#e9ebec]">
+      <td colSpan={6} className="px-5 py-2.5">
+        <div className="flex items-center gap-2">
+          <div className={`w-6 h-6 rounded-full ${bg} flex items-center justify-center`}>
+            <Icon className={`w-3.5 h-3.5 ${text}`} />
+          </div>
+          <span className={`text-[11px] font-bold ${text} uppercase tracking-wider`}>
+            {label} · {count}
+          </span>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function Avatar({ slug }: { slug: string }) {
+  const colors = [
+    { bg: 'bg-[#e8edfa]', text: 'text-[#3e60d5]' },
+    { bg: 'bg-[#e8e6f1]', text: 'text-[#6b5eae]' },
+    { bg: 'bg-[#ebf5f3]', text: 'text-[#1abc9c]' },
+    { bg: 'bg-[#fef5e4]', text: 'text-[#f9c851]' },
+    { bg: 'bg-[#fcebee]', text: 'text-[#f1556c]' },
+  ];
+  const char = (slug[0] || '?').toLowerCase();
+  const charCode = char.charCodeAt(0);
+  const colorIdx = charCode >= 97 && charCode <= 122 ? Math.floor((charCode - 97) / 5) : 0;
+  const { bg, text } = colors[colorIdx] || colors[0];
+  
+  return (
+    <div className={`w-9 h-9 rounded-full ${bg} flex items-center justify-center text-sm font-black ${text} uppercase shadow-inner`}>
+      {char}
     </div>
   );
 }
