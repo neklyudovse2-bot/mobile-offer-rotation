@@ -2,10 +2,14 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin", "cyrillic"], weight: ["400", "500", "600", "700"] });
+const inter = Inter({ 
+  subsets: ["latin", "cyrillic"], 
+  weight: ["400", "500", "600", "700"],
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
-  title: "Rotation Admin | Marcus Vitruvius",
+  title: "Rotation Admin",
   description: "Offer Rotation Management System",
 };
 
@@ -15,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ru">
-      <body className={`${inter.className} bg-[#f5f6f8] text-[#313a46] antialiased`}>
+    <html lang="ru" className={inter.variable}>
+      <body className="font-sans antialiased bg-[#f5f6f8] text-[#313a46]">
         {children}
       </body>
     </html>

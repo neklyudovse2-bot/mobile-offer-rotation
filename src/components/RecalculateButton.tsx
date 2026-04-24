@@ -29,7 +29,7 @@ export default function RecalculateButton() {
     <button 
       onClick={handleClick}
       disabled={loading}
-      className={`px-8 py-2.5 rounded-md bg-[#3e60d5] text-white text-xs font-bold hover:bg-[#324ea7] transition-all flex items-center gap-2 uppercase tracking-widest disabled:opacity-50`}
+      className={`px-5 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-all flex items-center gap-2 disabled:opacity-50`}
     >
       <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
       {loading ? 'Синхронизация...' : 'Запустить'}
