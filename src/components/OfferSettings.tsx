@@ -154,9 +154,15 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const renderRow = (o: any, zone: string) => (
-    <tr key={`${o.slug}-${zone}`} className="border-b border-[#f0f1f2] hover:bg-[#f8f9fa] transition-colors">
-      <td className="px-5 py-3.5 text-black text-black">
-        <div className="flex items-center gap-3">
+    <tr key={`${o.slug}-${zone}`} className="border-b border-[#f0f1f2] hover:bg-[#f8f9fa] transition-colors text-black">
+      {/* ПРАВКА 4: Переместил Витрина вперед */}
+      <td className="px-5 py-3.5 text-center">
+        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${zoneBadgeClass(zone, o.isActive)}`}>
+          #{o.currentPos}
+        </span>
+      </td>
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-3 text-black">
           <Avatar slug={o.slug} displayName={o.displayName} isActive={o.isActive} />
           <div>
             <div className="flex items-center gap-2">
@@ -178,11 +184,6 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
         </div>
       </td>
       <td className="px-5 py-3.5 text-center">
-        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${zoneBadgeClass(zone, o.isActive)}`}>
-          #{o.currentPos}
-        </span>
-      </td>
-      <td className="px-5 py-3.5 text-center text-black border-black">
         <button
           onClick={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all border
@@ -212,7 +213,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           }}
         />
       </td>
-      <td className="px-5 py-3.5 text-right text-sm tabular-nums">
+      <td className="px-5 py-3.5 text-right text-sm tabular-nums text-black">
         {o.epc > 0 ? (
           <span className={`font-semibold ${o.isActive ? 'text-[#1abc9c]' : 'text-[#98a6ad]'}`}>
             {o.epc.toFixed(2)}
@@ -253,7 +254,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
 
       <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
         <div>
-          <label className="block text-[11px] font-bold text-[#6c757d] uppercase tracking-wider mb-2">Метод ротации</label>
+          <label className="block text-[11px] font-bold text-[#6c757d] uppercase tracking-wider mb-2 text-black">Метод ротации</label>
           <select value={epcMode} onChange={(e) => updateEpcMode(e.target.value)}
             className="w-56 px-3 py-2 rounded-md border border-[#e9ebec] text-sm text-[#313a46] focus:outline-none focus:border-[#3e60d5] focus:ring-2 focus:ring-[#e8edfa] bg-white transition-all font-medium cursor-pointer"
           >
@@ -273,8 +274,9 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[#f5f6f8] border-b border-[#e9ebec]">
-              <th className="px-5 py-3 text-left text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Оффер</th>
+              {/* ПРАВКА 4: Переместил Витрина вперед */}
               <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Витрина</th>
+              <th className="px-5 py-3 text-left text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Оффер</th>
               <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Статус</th>
               <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider text-[#3e60d5]">Manual PIN</th>
               <th className="px-5 py-3 text-right text-[11px] font-bold text-[#6c757d] uppercase tracking-wider leading-none">EPC</th>
@@ -310,7 +312,7 @@ function ZoneRows({ zone, count }: { zone: string, count: number }) {
   return (
     <tr className="bg-[#f8f9fa] border-y border-[#e9ebec]">
       <td colSpan={5} className="px-5 py-2.5">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-black">
           <div className={`w-6 h-6 rounded-full ${bg} flex items-center justify-center`}>
             <Icon className={`w-3.5 h-3.5 ${text}`} />
           </div>
@@ -331,10 +333,8 @@ function Avatar({ slug, displayName, isActive }: { slug: string, displayName: st
     { bg: 'bg-[#fef5e4]', text: 'text-[#f9c851]' }, // p-t
     { bg: 'bg-[#fcebee]', text: 'text-[#f1556c]' }, // u-z
   ];
-  
   const char = (displayName?.[0] || slug?.[0] || '?').toUpperCase();
   const charCode = char.charCodeAt(0);
-  // Используем модуль 5 для стабильного выбора цвета из массива
   const colorIdx = charCode % 5;
   let { bg, text } = colors[colorIdx];
   
