@@ -99,7 +99,6 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: Pr
     }
   };
 
-  // Sort by zone
   const pinZone = offers
     .filter((o) => o.manualPin !== null && o.isActive)
     .sort((a, b) => (a.manualPin || 0) - (b.manualPin || 0));
@@ -115,21 +114,6 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: Pr
   const inactiveZone = offers
     .filter((o) => !o.isActive)
     .sort((a, b) => a.initialPos - b.initialPos);
-
-  // Calculate display position
-  let posCounter = 0;
-  const withPositions = [
-    ...pinZone.map((o) => ({ ...o, displayPos: ++posCounter, zone: 'pin' as const })),
-    ...autoZone.map((o) => ({ ...o, displayPos: ++posCounter, zone: 'auto' as const })),
-    ...defaultZone.map((o) => ({ ...o, displayPos: ++posCounter, zone: 'default' as const })),
-  ];
-
-  let hiddenCounter = posCounter;
-  const hiddenWithPositions = inactiveZone.map((o) => ({ 
-    ...o, 
-    displayPos: ++hiddenCounter, 
-    zone: 'hidden' as const 
-  }));
 
   return (
     <div className="space-y-6">
@@ -178,7 +162,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: Pr
                 Оффер
               </th>
               <th className="px-5 py-3 text-center text-[11px] font-medium 
-                             text-[#666] uppercase tracking-wider w-32">
+                             text-[#666] uppercase tracking-wider w-36">
                 Статус
               </th>
               <th className="px-5 py-3 text-center text-[11px] font-medium 
@@ -192,7 +176,6 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: Pr
             </tr>
           </thead>
           <tbody>
-            {/* Active zones */}
             {pinZone.length > 0 && (
               <ZoneSeparator label="Pin" count={pinZone.length} icon={<Pin className="w-3 h-3" />} />
             )}
@@ -200,23 +183,20 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: Pr
               <OfferRow 
                 key={o.slug}
                 offer={o}
-                position={posCounter - autoZone.length - defaultZone.length - pinZone.length + idx + 1}
+                position={idx + 1}
                 zone="pin"
-                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
-                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+                onUpdate={(fields) => updateOffer(o.slug, o.docId, fields)}
               />
             ))}
 
-            {(pinZone.length > 0 && autoZone.length > 0) && <ZoneSeparator label="Auto" count={autoZone.length} />}
-            {(pinZone.length === 0 && autoZone.length > 0) && <ZoneSeparator label="Auto" count={autoZone.length} />}
+            {autoZone.length > 0 && <ZoneSeparator label="Auto" count={autoZone.length} />}
             {autoZone.map((o, idx) => (
               <OfferRow 
                 key={o.slug}
                 offer={o}
                 position={pinZone.length + idx + 1}
                 zone="auto"
-                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
-                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+                onUpdate={(fields) => updateOffer(o.slug, o.docId, fields)}
               />
             ))}
 
@@ -229,12 +209,10 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: Pr
                 offer={o}
                 position={pinZone.length + autoZone.length + idx + 1}
                 zone="default"
-                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
-                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+                onUpdate={(fields) => updateOffer(o.slug, o.docId, fields)}
               />
             ))}
 
-            {/* Hidden */}
             {inactiveZone.length > 0 && (
               <ZoneSeparator label="Скрытые" count={inactiveZone.length} muted />
             )}
@@ -244,8 +222,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: Pr
                 offer={o}
                 position={pinZone.length + autoZone.length + defaultZone.length + idx + 1}
                 zone="hidden"
-                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
-                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+                onUpdate={(fields) => updateOffer(o.slug, o.docId, fields)}
               />
             ))}
           </tbody>
@@ -288,20 +265,17 @@ function OfferRow({
   offer, 
   position,
   zone,
-  onToggleActive, 
-  onSavePin 
+  onUpdate
 }: { 
   offer: Offer; 
   position: number;
   zone: 'pin' | 'auto' | 'default' | 'hidden';
-  onToggleActive: () => void;
-  onSavePin: (val: number | null) => void;
+  onUpdate: (fields: any) => void;
 }) {
   const isHidden = zone === 'hidden';
   
   return (
     <tr className="border-b border-[#eaeaea] last:border-b-0 hover:bg-[#fafafa] transition-colors">
-      {/* Витрина */}
       <td className="px-5 py-3">
         <span className={`text-sm tabular-nums font-medium 
                           ${isHidden ? 'text-[#999]' : 'text-black'}`}>
@@ -309,7 +283,6 @@ function OfferRow({
         </span>
       </td>
       
-      {/* Оффер */}
       <td className="px-5 py-3">
         <div className="flex items-center gap-2">
           <span className={`text-sm font-medium 
@@ -329,32 +302,36 @@ function OfferRow({
         </div>
       </td>
       
-      {/* Статус — pill toggle */}
+      {/* Статус — DROPDOWN */}
       <td className="px-5 py-3 text-center">
-        <button 
-          onClick={onToggleActive}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md 
-                      text-xs font-medium transition-colors border
+        <select
+          value={offer.isActive ? 'active' : 'hidden'}
+          onChange={(e) => onUpdate({ is_active: e.target.value === 'active' })}
+          className={`px-2.5 py-1 rounded-md text-xs font-medium border 
+                      cursor-pointer focus:outline-none focus:border-black 
+                      transition-colors appearance-none pr-7
                       ${offer.isActive 
-                        ? 'border-[#eaeaea] text-black hover:bg-[#fafafa]' 
-                        : 'border-[#eaeaea] text-[#999] hover:bg-[#fafafa]'
+                        ? 'border-[#eaeaea] text-black bg-white hover:bg-[#fafafa]' 
+                        : 'border-[#eaeaea] text-[#999] bg-[#fafafa] hover:bg-[#f0f0f0]'
                       }`}
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 6px center',
+          }}
         >
-          <span className={`w-1.5 h-1.5 rounded-full 
-                            ${offer.isActive ? 'bg-[#0070f3]' : 'bg-[#999]'}`} />
-          {offer.isActive ? 'Активен' : 'Скрыт'}
-        </button>
+          <option value="active">Активен</option>
+          <option value="hidden">Скрыт</option>
+        </select>
       </td>
       
-      {/* Manual PIN */}
       <td className="px-5 py-3 text-center">
         <PinEditor 
           initialValue={offer.manualPin}
-          onSave={onSavePin}
+          onSave={(val) => onUpdate({ manual_pin: val })}
         />
       </td>
       
-      {/* EPC */}
       <td className="px-5 py-3 text-right">
         {offer.epc > 0 ? (
           <span className={`text-sm font-medium tabular-nums 
