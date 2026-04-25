@@ -5,8 +5,9 @@ import { sql } from '@/lib/db';
 import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
 import RecalculateButton from '@/components/RecalculateButton';
+import RecalculateAppButton from '@/components/RecalculateAppButton';
 import AdminNav from '@/components/AdminNav';
-import { ArrowRight, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -110,7 +111,7 @@ export default async function AdminPage() {
           {appsData.map(app => (
             <div 
               key={app.appId}
-              className="border border-[#eaeaea] rounded-md bg-white hover:border-[#999] transition-colors group"
+              className="border border-[#eaeaea] rounded-md bg-white flex flex-col"
             >
               {/* Header */}
               <div className="p-5 border-b border-[#eaeaea]">
@@ -136,7 +137,7 @@ export default async function AdminPage() {
               </div>
 
               {/* Top offers */}
-              <div className="p-5">
+              <div className="p-5 flex-1">
                 <p className="text-[11px] font-medium text-[#999] uppercase tracking-wider mb-3">
                   Top offers
                 </p>
@@ -164,21 +165,27 @@ export default async function AdminPage() {
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="px-5 py-3 border-t border-[#eaeaea] flex items-center justify-between">
-                <Link 
-                  href={`/admin/stats/${app.appId}`}
-                  className="text-xs text-[#666] hover:text-black transition-colors"
-                >
-                  Статистика
-                </Link>
-                <Link 
-                  href={`/admin/offers/${app.appId}`}
-                  className="flex items-center gap-1 text-xs font-medium text-black hover:gap-2 transition-all"
-                >
-                  Настроить
-                  <ArrowRight className="w-3 h-3" />
-                </Link>
+              {/* Footer with 3 buttons */}
+              <div className="p-3 border-t border-[#eaeaea] space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Link 
+                    href={`/admin/stats/${app.appId}`}
+                    className="flex items-center justify-center px-3 py-2 rounded-md 
+                               border border-[#eaeaea] bg-white text-sm font-medium 
+                               text-black hover:bg-[#fafafa] transition-colors"
+                  >
+                    Статистика
+                  </Link>
+                  <Link 
+                    href={`/admin/offers/${app.appId}`}
+                    className="flex items-center justify-center px-3 py-2 rounded-md 
+                               bg-black text-white text-sm font-medium 
+                               hover:bg-[#333] transition-colors"
+                  >
+                    Настроить
+                  </Link>
+                </div>
+                <RecalculateAppButton appId={app.appId} />
               </div>
             </div>
           ))}
@@ -193,7 +200,7 @@ export default async function AdminPage() {
                 Пересчитать все приложения
               </p>
               <p className="text-xs text-[#666] mt-0.5">
-                Обновит Firestore по последним данным Keitaro
+                Обновит Firestore по последним данным Keitaro для всех 3 приложений
               </p>
             </div>
           </div>
