@@ -58,3 +58,27 @@ export function getLoansCollection(appId: string) {
 export function isAllowedAppId(appId: string): boolean {
   return ALLOWED_APP_IDS.has(appId);
 }
+
+/**
+ * Извлекает slug из данных Firestore документа.
+ * 
+ * Документы могут хранить URL в одном из двух полей:
+ * - `url` (новая структура, большинство приложений)
+ * - `site` (старая структура, например ios-11)
+ * 
+ * Slug извлекается из query параметра `aff_sub3` в URL.
+ * Если URL не парсится или параметра нет — возвращается пустая строка.
+ * 
+ * Возвращает: slug (строка) или '' если извлечь не удалось
+ */
+export function extractSlug(data: Record<string, any>): string {
+  const urlField = data?.url || data?.site || '';
+  if (!urlField) return '';
+  
+  try {
+    const urlObj = new URL(urlField);
+    return urlObj.searchParams.get('aff_sub3') || '';
+  } catch (e) {
+    return '';
+  }
+}

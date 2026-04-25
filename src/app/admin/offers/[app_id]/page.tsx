@@ -2,7 +2,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import Login from '@/components/Login';
 import { APP_MAPPING } from '@/config/mapping';
 import { sql } from '@/lib/db';
-import { getLoansCollection } from '@/lib/firebase';
+import { getLoansCollection, extractSlug } from '@/lib/firebase';
 import AdminNav from '@/components/AdminNav';
 import Link from 'next/link';
 import { ChevronRight, BarChart3 } from 'lucide-react';
@@ -49,15 +49,8 @@ export default async function OffersAppPage({ params }: { params: Promise<{ app_
 
   const initialOffers = snapshot.docs.map((doc, idx) => {
     const data = doc.data();
-    let slug = '';
-    let hasSlug = false;
-    try { 
-      const urlField = data.url || '';
-      const urlObj = new URL(urlField);
-      slug = urlObj.searchParams.get('aff_sub3') || ''; 
-      hasSlug = !!slug;
-    } catch(e) {}
-    if (!slug) slug = doc.id;
+    const slug = extractSlug(data);
+    const hasSlug = !!slug;
     
     const ov = overrides.find((o: any) => o.offer_slug === slug);
     

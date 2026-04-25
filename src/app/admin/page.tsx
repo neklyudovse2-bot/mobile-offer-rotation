@@ -2,7 +2,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import Login from '@/components/Login';
 import { APP_MAPPING } from '@/config/mapping';
 import { sql } from '@/lib/db';
-import { getLoansCollection } from '@/lib/firebase';
+import { getLoansCollection, extractSlug } from '@/lib/firebase';
 import Link from 'next/link';
 import RecalculateButton from '@/components/RecalculateButton';
 import RecalculateAppButton from '@/components/RecalculateAppButton';
@@ -41,8 +41,7 @@ export default async function AdminPage() {
 
       snapshotAll.docs.forEach(doc => {
         const data = doc.data();
-        let slug = '';
-        try { slug = new URL(data.url).searchParams.get('aff_sub3') || ''; } catch(e) {}
+        const slug = extractSlug(data);
         const isAct = data.active !== false;
         if (isAct) metrics.active++; else metrics.hidden++;
         const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
@@ -52,8 +51,7 @@ export default async function AdminPage() {
       const snapshotTop = await collection.orderBy(app.sortField, 'asc').limit(3).get();
       topOffers = snapshotTop.docs.map(doc => {
         const data = doc.data();
-        let slug = '';
-        try { slug = new URL(data.url).searchParams.get('aff_sub3') || ''; } catch(e) {}
+        const slug = extractSlug(data);
         const displayName = data.title || slug || doc.id;
         const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
         let zone: 'pin' | 'auto' | 'default' = 'default';

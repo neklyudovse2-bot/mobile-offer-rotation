@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getLoansCollection, getFirestore } from '@/lib/firebase';
+import { getLoansCollection, getFirestore, extractSlug } from '@/lib/firebase';
 import { APP_MAPPING } from '@/config/mapping';
 
 export async function GET(request: Request) {
@@ -51,12 +51,7 @@ async function handleRequest(request: Request) {
       
       const offers = snapshot.docs.map(doc => {
         const data = doc.data();
-        const urlField = data.url || '';
-        let slug = '';
-        try {
-          const urlObj = new URL(urlField);
-          slug = urlObj.searchParams.get('aff_sub3') || '';
-        } catch (e) {}
+        const slug = extractSlug(data);
         return { id: doc.id, slug, data, currentPos: data[app.sortField] || 999 };
       });
 
