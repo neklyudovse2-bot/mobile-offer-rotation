@@ -9,86 +9,72 @@ import RecalculateAppButton from '@/components/RecalculateAppButton';
 import RefreshButton from '@/components/RefreshButton';
 import AdminNav from '@/components/AdminNav';
 import { ArrowRight, RefreshCw } from 'lucide-react';
-import { unstable_cache } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
-
-// Загрузка данных дашборда с кэшированием.
-// Кэш живёт пока не вызвана revalidateTag('dashboard').
-// Триггеры инвалидации:
-// - кнопка "Обновить" (через server action revalidateDashboard)
-// - после rotation/run (после batch.commit в Firestore)
-// - после изменений в /api/admin/override
-const getDashboardData = unstable_cache(
-  async () => {
-    const lastSyncRes = await sql`
-      SELECT MAX(synced_at) as last_sync, COUNT(*)::int as record_count 
-      FROM keitaro_stats
-    `;
-    const lastSyncAt = lastSyncRes[0]?.last_sync 
-      ? new Date(lastSyncRes[0].last_sync).toISOString() 
-      : null;
-    const recordCount = lastSyncRes[0]?.record_count || 0;
-
-    const appsData = [];
-
-    for (const app of APP_MAPPING) {
-      let topOffers: Array<{slug: string, displayName: string, pos: number, epc: number, zone: 'pin' | 'auto' | 'default'}> = [];
-      let metrics = { active: 0, hidden: 0, pinned: 0 };
-
-      try {
-        const collection = getLoansCollection(app.appId);
-        const snapshotAll = await collection.get();
-        const overrides = await sql`SELECT offer_slug, manual_pin, auto_priority FROM offer_overrides WHERE app_id = ${app.appId}`;
-        const epcStats = await sql`SELECT offer_slug, epc FROM global_epc_7d`;
-        const epcMap = new Map(epcStats.map((s: any) => [s.offer_slug, parseFloat(s.epc)]));
-
-        snapshotAll.docs.forEach(doc => {
-          const data = doc.data();
-          const slug = extractSlug(data);
-          const isAct = data.active !== false;
-          if (isAct) metrics.active++; else metrics.hidden++;
-          const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
-          if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) metrics.pinned++;
-        });
-
-        const snapshotTop = await collection.orderBy(app.sortField, 'asc').limit(20).get();
-        const activeTopDocs = snapshotTop.docs.filter(doc => doc.data().active !== false).slice(0, 3);
-
-        topOffers = activeTopDocs.map(doc => {
-          const data = doc.data();
-          const slug = extractSlug(data);
-          const displayName = data.title || slug || doc.id;
-          const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
-          let zone: 'pin' | 'auto' | 'default' = 'default';
-          if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) zone = 'pin';
-          else if (ov?.auto_priority !== null && ov?.auto_priority !== undefined) zone = 'auto';
-          return { 
-            slug: slug || doc.id, 
-            displayName,
-            pos: data[app.sortField], 
-            epc: epcMap.get(slug || doc.id) || 0, 
-            zone 
-          };
-        });
-      } catch(e) {
-        console.error(`Failed to fetch Firestore data for ${app.appId}:`, e);
-      }
-      appsData.push({ ...app, topOffers, metrics });
-    }
-
-    return { appsData, lastSyncAt, recordCount };
-  },
-  ['dashboard-data'],
-  { tags: ['dashboard'] }
-);
+// Кэш страницы на 60 секунд. После любого действия 
+// (override, rotation/run, кнопка Обновить) — инвалидируется явно 
+// через revalidatePath('/admin').
+export const revalidate = 60;
 
 export default async function AdminPage() {
   let authenticated = false;
   try { authenticated = await isAdminAuthenticated(); } catch (e) {}
   if (!authenticated) return <Login />;
 
-  const { appsData, lastSyncAt, recordCount } = await getDashboardData();
+  const lastSyncRes = await sql`
+    SELECT MAX(synced_at) as last_sync, COUNT(*)::int as record_count 
+    FROM keitaro_stats
+  `;
+  const lastSyncAt = lastSyncRes[0]?.last_sync 
+    ? new Date(lastSyncRes[0].last_sync).toISOString() 
+    : null;
+  const recordCount = lastSyncRes[0]?.record_count || 0;
+
+  const appsData = [];
+
+  for (const app of APP_MAPPING) {
+    let topOffers: Array<{slug: string, displayName: string, pos: number, epc: number, zone: 'pin' | 'auto' | 'default'}> = [];
+    let metrics = { active: 0, hidden: 0, pinned: 0 };
+
+    try {
+      const collection = getLoansCollection(app.appId);
+      const snapshotAll = await collection.get();
+      const overrides = await sql`SELECT offer_slug, manual_pin, auto_priority FROM offer_overrides WHERE app_id = ${app.appId}`;
+      const epcStats = await sql`SELECT offer_slug, epc FROM global_epc_7d`;
+      const epcMap = new Map(epcStats.map((s: any) => [s.offer_slug, parseFloat(s.epc)]));
+
+      snapshotAll.docs.forEach(doc => {
+        const data = doc.data();
+        const slug = extractSlug(data);
+        const isAct = data.active !== false;
+        if (isAct) metrics.active++; else metrics.hidden++;
+        const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
+        if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) metrics.pinned++;
+      });
+
+      const snapshotTop = await collection.orderBy(app.sortField, 'asc').limit(20).get();
+      const activeTopDocs = snapshotTop.docs.filter(doc => doc.data().active !== false).slice(0, 3);
+
+      topOffers = activeTopDocs.map(doc => {
+        const data = doc.data();
+        const slug = extractSlug(data);
+        const displayName = data.title || slug || doc.id;
+        const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
+        let zone: 'pin' | 'auto' | 'default' = 'default';
+        if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) zone = 'pin';
+        else if (ov?.auto_priority !== null && ov?.auto_priority !== undefined) zone = 'auto';
+        return { 
+          slug: slug || doc.id, 
+          displayName,
+          pos: data[app.sortField], 
+          epc: epcMap.get(slug || doc.id) || 0, 
+          zone 
+        };
+      });
+    } catch(e) {
+      console.error(`Failed to fetch Firestore data for ${app.appId}:`, e);
+    }
+    appsData.push({ ...app, topOffers, metrics });
+  }
 
   return (
     <div className="min-h-screen bg-white">
