@@ -48,8 +48,10 @@ export default async function AdminPage() {
         if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) metrics.pinned++;
       });
 
-      const snapshotTop = await collection.orderBy(app.sortField, 'asc').limit(3).get();
-      topOffers = snapshotTop.docs.map(doc => {
+      const snapshotTop = await collection.orderBy(app.sortField, 'asc').limit(20).get();
+      const activeTopDocs = snapshotTop.docs.filter(doc => doc.data().active !== false).slice(0, 3);
+
+      topOffers = activeTopDocs.map(doc => {
         const data = doc.data();
         const slug = extractSlug(data);
         const displayName = data.title || slug || doc.id;
