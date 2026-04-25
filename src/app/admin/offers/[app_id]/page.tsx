@@ -19,11 +19,24 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
   const app = APP_MAPPING.find(a => a.appId === app_id);
   if (!app) return <div>App not found</div>;
 
+  const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
+  const lastSync = lastSyncRes[0]?.last_sync ? new Date(lastSyncRes[0].last_sync).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '...';
+
   const overrides = await sql`SELECT offer_slug, manual_pin, auto_priority, epc_mode FROM offer_overrides WHERE app_id = ${app.appId}`;
   const appConfig = overrides.find((o: any) => o.offer_slug === 'SYSTEM_DEFAULT');
+  const epcMode = appConfig?.epc_mode || 'global';
 
   let firestore;
   try { firestore = getFirestore(); } catch(e) {}
+
+  // ПРАВКА 6: Получаем EPC для офферов
+  let epcStats;
+  if (epcMode === 'per_app') {
+    epcStats = await sql`SELECT offer_slug, epc FROM per_app_epc_7d WHERE app_name = ${app.name}`;
+  } else {
+    epcStats = await sql`SELECT offer_slug, epc FROM global_epc_7d`;
+  }
+  const epcMap = new Map(epcStats.map((s: any) => [s.offer_slug, parseFloat(s.epc)]));
 
   let initialOffers: any[] = [];
   if (firestore) {
@@ -49,7 +62,9 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
         isActive: data.active !== false,
         manualPin: ov?.manual_pin ?? null,
         autoPriority: ov?.auto_priority ?? null,
-        hasSlug: !!slug
+        epc: epcMap.get(slug) || 0, // Добавляем EPC
+        hasSlug: !!slug,
+        zone: ov?.manual_pin !== null && ov?.manual_pin !== undefined ? 'pin' : (ov?.auto_priority ? 'auto' : 'default')
       };
     });
 
@@ -57,24 +72,17 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
   }
 
   return (
-    <div className="min-h-screen bg-white text-black p-8 font-sans">
-      <div className="max-w-4xl mx-auto">
-        <AdminNav />
-        <Link href="/admin" className="text-blue-600 text-sm mb-4 inline-block">← Назад на дашборд</Link>
-        <div className="mb-8 border-b-2 border-black pb-4 mt-4">
-          <h1 className="text-4xl font-black uppercase tracking-tighter">Настройки: {app.name}</h1>
-          <div className="flex gap-4 items-center mt-1">
-             <p className="text-gray-400 font-mono text-sm uppercase tracking-widest">{app.appId}</p>
-             <Link href={`/admin/stats/${app.appId}`} className="text-[10px] bg-gray-100 px-2 py-0.5 rounded font-black text-gray-500 hover:bg-black hover:text-white uppercase tracking-widest transition-all">Открыть статистику</Link>
-          </div>
-        </div>
-
+    <div className="min-h-screen bg-[#f5f6f8] text-[#313a46]">
+      {/* ПРАВКА 1: AdminNav вне узкого контейнера */}
+      <AdminNav lastSync={lastSync} />
+      
+      <main className="max-w-7xl mx-auto px-6 py-8">
         <OfferSettings 
           app={app} 
           initialOffers={initialOffers} 
-          initialEpcMode={appConfig ? appConfig.epc_mode : 'global'} 
+          initialEpcMode={epcMode} 
         />
-      </div>
+      </main>
     </div>
   );
 }
