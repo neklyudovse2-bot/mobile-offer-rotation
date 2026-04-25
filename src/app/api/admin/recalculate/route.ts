@@ -18,7 +18,13 @@ export async function POST(request: Request) {
     const protocol = request.url.startsWith('https') ? 'https' : 'http';
     const host = request.headers.get('host');
     
-    const res = await fetch(`${protocol}://${host}/api/rotation/run`, { cache: 'no-store' });
+    const url = new URL(request.url);
+    const appIdParam = url.searchParams.get('app_id');
+    const rotationUrl = appIdParam 
+      ? `${protocol}://${host}/api/rotation/run?app_id=${appIdParam}`
+      : `${protocol}://${host}/api/rotation/run`;
+      
+    const res = await fetch(rotationUrl, { method: 'POST', cache: 'no-store' });
     const data = await res.json();
 
     return NextResponse.json(data);
