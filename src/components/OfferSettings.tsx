@@ -107,6 +107,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           ...fields 
         })
       });
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Failed to save');
@@ -118,6 +119,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const recalculate = async () => {
+    if (!confirm('Пересчитать ротацию для этого приложения?')) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/recalculate?app_id=${app.appId}`, { method: 'POST' });
@@ -168,7 +170,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
               )}
             </div>
             {o.hasSlug && (
-              <div className="text-xs text-[#98a6ad] mt-0.5 font-mono">
+              <div className="text-xs text-[#98a6ad] mt-0.5 font-mono truncate max-w-[150px]">
                 {o.slug}
               </div>
             )}
@@ -224,8 +226,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
 
   return (
     <div className="space-y-6">
-      {/* ПРАВКА 2: Заголовок и Хлебные крошки */}
-      <div className="mb-6">
+      <div className="mb-6 text-black">
         <nav className="flex items-center gap-1.5 text-xs text-[#6c757d] mb-3">
           <Link href="/admin" className="hover:text-[#3e60d5] transition-colors">Главная</Link>
           <ChevronRight className="w-3 h-3 text-[#e9ebec]" />
@@ -250,7 +251,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
+      <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)] text-black">
         <div>
           <label className="block text-[11px] font-bold text-[#6c757d] uppercase tracking-wider mb-2">Метод ротации</label>
           <select value={epcMode} onChange={(e) => updateEpcMode(e.target.value)}
@@ -261,14 +262,14 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           </select>
         </div>
         <button onClick={recalculate} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-colors shadow-sm disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-all shadow-md disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
           Пересчитать сейчас
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border border-[#e9ebec] overflow-hidden shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
+      <div className="bg-white rounded-lg border border-[#e9ebec] overflow-hidden shadow-[0_0_35px_0_rgba(154,161,171,0.15)] text-black">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[#f5f6f8] border-b border-[#e9ebec]">
@@ -281,16 +282,16 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           </thead>
           <tbody className="divide-y divide-[#f0f1f2]">
             {pinZone.length > 0 && <ZoneRows zone="pin" count={pinZone.length} />}
-            {pinZone.map(o => renderRow(o, 'pin'))}
+            {pinZone.map((o: any) => renderRow(o, 'pin'))}
 
             <ZoneRows zone="auto" count={autoZone.length} />
-            {autoZone.map(o => renderRow(o, 'auto'))}
+            {autoZone.map((o: any) => renderRow(o, 'auto'))}
 
             {defaultZone.length > 0 && <ZoneRows zone="default" count={defaultZone.length} />}
-            {defaultZone.map(o => renderRow(o, 'default'))}
+            {defaultZone.map((o: any) => renderRow(o, 'default'))}
 
             {inactiveZone.length > 0 && <ZoneRows zone="hidden" count={inactiveZone.length} />}
-            {inactiveZone.map(o => renderRow(o, 'hidden'))}
+            {inactiveZone.map((o: any) => renderRow(o, 'hidden'))}
           </tbody>
         </table>
       </div>
