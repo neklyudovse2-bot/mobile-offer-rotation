@@ -4,26 +4,39 @@ import { getFirestore } from '@/lib/firebase';
 import { APP_MAPPING } from '@/config/mapping';
 
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const filterAppId = searchParams.get('app_id');
+  return handleRequest(request);
+}
 
+export async function POST(request: Request) {
+  return handleRequest(request);
+}
+
+async function handleRequest(request: Request) {
+  const startTime = Date.now();
+  const url = new URL(request.url);
+  const appIdParam = url.searchParams.get('app_id');
+
+  // Определяем источник: cron присылает заголовок или GET-запрос без параметров?
+  // Согласно инструкции: GET === cron, POST === user
+  const triggeredBy = request.headers.get('x-vercel-cron') || request.method === 'GET' ? 'cron' : 'user';
+
+  try {
     const protocol = request.url.startsWith('https') ? 'https' : 'http';
     const host = request.headers.get('host');
     const syncRes = await fetch(`${protocol}://${host}/api/keitaro/sync`, { cache: 'no-store' });
     
     if (!syncRes.ok) {
       const errorData = await syncRes.json();
-      return NextResponse.json({ ok: false, error: 'Keitaro sync failed', details: errorData }, { status: 500 });
+      throw new Error(`Keitaro sync failed: ${JSON.stringify(errorData)}`);
     }
 
     let firestore;
     try { firestore = getFirestore(); } catch (e: any) { 
-        return NextResponse.json({ ok: false, error: e.message }); 
+        throw new Error(e.message);
     }
 
-    const results = [];
-    const appsToProcess = filterAppId ? APP_MAPPING.filter(a => a.appId === filterAppId) : APP_MAPPING;
+    const results: any[] = [];
+    const appsToProcess = appIdParam ? APP_MAPPING.filter(a => a.appId === appIdParam) : APP_MAPPING;
 
     for (const app of appsToProcess) {
       const overrideModeRes = await sql`SELECT epc_mode FROM offer_overrides WHERE app_id = ${app.appId} AND offer_slug = 'SYSTEM_DEFAULT' LIMIT 1`;
@@ -42,10 +55,10 @@ export async function GET(request: Request) {
       
       const offers = snapshot.docs.map(doc => {
         const data = doc.data();
-        const url = data.url || '';
+        const urlField = data.url || '';
         let slug = '';
         try {
-          const urlObj = new URL(url);
+          const urlObj = new URL(urlField);
           slug = urlObj.searchParams.get('aff_sub3') || '';
         } catch (e) {}
         return { id: doc.id, slug, data, currentPos: data[app.sortField] || 999 };
@@ -76,15 +89,10 @@ export async function GET(request: Request) {
       pinZone.sort((a, b) => a.manual_pin - b.manual_pin);
       autoZone.sort((a, b) => b.epc - a.epc);
 
-      // Правка 1: Сброс старых auto_priority
-      console.log('[ROTATION] resetting auto_priority for app:', app.appId);
-      await sql`
-        UPDATE offer_overrides 
-        SET auto_priority = NULL 
-        WHERE app_id = ${app.appId}
-      `;
+      // Сброс старых приоритетов
+      await sql`UPDATE offer_overrides SET auto_priority = NULL WHERE app_id = ${app.appId}`;
 
-      // Правка 2: Назначаем auto_priority с учётом одинаковых EPC
+      // Групповой auto_priority
       let priority = 0;
       let prevEpc: number | null = null;
       let counter = 0;
@@ -133,9 +141,39 @@ export async function GET(request: Request) {
       });
     }
 
+    // ЛОГИРОВАНИЕ УСПЕХА
+    const durationMs = Date.now() - startTime;
+    const totalOffersAffected = results.reduce((sum, app: any) => sum + (app.offers?.length || 0), 0);
+    const epcModeForLog = appIdParam && results[0]?.epc_mode ? results[0].epc_mode : null;
+
+    try {
+      await sql`
+        INSERT INTO rotation_history 
+          (app_id, triggered_by, epc_mode, status, offers_affected, duration_ms)
+        VALUES 
+          (${appIdParam}, ${triggeredBy}, ${epcModeForLog}, 'success', ${totalOffersAffected}, ${durationMs})
+      `;
+    } catch (e) {
+      console.error('[ROTATION] Failed to log history:', e);
+    }
+
     return NextResponse.json({ ok: true, updated: results });
+
   } catch (error: any) {
     console.error('Rotation Error:', error);
+    // ЛОГИРОВАНИЕ ОШИБКИ
+    const durationMs = Date.now() - startTime;
+    try {
+      await sql`
+        INSERT INTO rotation_history 
+          (app_id, triggered_by, status, error_message, duration_ms)
+        VALUES 
+          (${appIdParam}, ${triggeredBy}, 'error', ${error.message}, ${durationMs})
+      `;
+    } catch (e) {
+      console.error('[ROTATION] Failed to log error:', e);
+    }
+    
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 }
