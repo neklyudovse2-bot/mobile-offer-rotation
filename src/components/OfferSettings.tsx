@@ -155,7 +155,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
 
   const renderRow = (o: any, zone: string) => (
     <tr key={`${o.slug}-${zone}`} className="border-b border-[#f0f1f2] hover:bg-[#f8f9fa] transition-colors">
-      <td className="px-5 py-3.5 text-black">
+      <td className="px-5 py-3.5 text-black text-black">
         <div className="flex items-center gap-3">
           <Avatar slug={o.slug} displayName={o.displayName} isActive={o.isActive} />
           <div>
@@ -182,7 +182,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           #{o.currentPos}
         </span>
       </td>
-      <td className="px-5 py-3.5 text-center">
+      <td className="px-5 py-3.5 text-center text-black border-black">
         <button
           onClick={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
           className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all border
@@ -225,8 +225,8 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   );
 
   return (
-    <div className="space-y-6">
-      <div className="mb-6 text-black">
+    <div className="space-y-6 text-black border-black">
+      <div className="mb-6">
         <nav className="flex items-center gap-1.5 text-xs text-[#6c757d] mb-3">
           <Link href="/admin" className="hover:text-[#3e60d5] transition-colors">Главная</Link>
           <ChevronRight className="w-3 h-3 text-[#e9ebec]" />
@@ -244,14 +244,14 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
             <p className="text-sm text-[#6c757d]">Управление офферами и приоритетами</p>
           </div>
           
-          <Link href={`/admin/stats/${app.appId}`} className="flex items-center gap-2 px-4 py-2 rounded-md border border-[#e9ebec] bg-white text-sm font-medium text-[#313a46] hover:bg-[#f5f6f8] transition-colors">
+          <Link href={`/admin/stats/${app.appId}`} className="flex items-center gap-2 px-4 py-2 rounded-md border border-[#e9ebec] bg-white text-sm font-medium text-[#313a46] hover:bg-[#f5f6f8] transition-colors shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
             <BarChart3 className="w-4 h-4 text-[#6c757d]" />
             Открыть статистику
           </Link>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)] text-black">
+      <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
         <div>
           <label className="block text-[11px] font-bold text-[#6c757d] uppercase tracking-wider mb-2">Метод ротации</label>
           <select value={epcMode} onChange={(e) => updateEpcMode(e.target.value)}
@@ -262,14 +262,14 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
           </select>
         </div>
         <button onClick={recalculate} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-all shadow-md disabled:opacity-50"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-all shadow-md active:scale-95 disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
           Пересчитать сейчас
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border border-[#e9ebec] overflow-hidden shadow-[0_0_35px_0_rgba(154,161,171,0.15)] text-black">
+      <div className="bg-white rounded-lg border border-[#e9ebec] overflow-hidden shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-[#f5f6f8] border-b border-[#e9ebec]">
@@ -277,7 +277,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
               <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Витрина</th>
               <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Статус</th>
               <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider text-[#3e60d5]">Manual PIN</th>
-              <th className="px-5 py-3 text-right text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">EPC</th>
+              <th className="px-5 py-3 text-right text-[11px] font-bold text-[#6c757d] uppercase tracking-wider leading-none">EPC</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#f0f1f2]">
@@ -325,16 +325,18 @@ function ZoneRows({ zone, count }: { zone: string, count: number }) {
 
 function Avatar({ slug, displayName, isActive }: { slug: string, displayName: string, isActive: boolean }) {
   const colors = [
-    { bg: 'bg-[#e8edfa]', text: 'text-[#3e60d5]' },
-    { bg: 'bg-[#e8e6f1]', text: 'text-[#6b5eae]' },
-    { bg: 'bg-[#ebf5f3]', text: 'text-[#1abc9c]' },
-    { bg: 'bg-[#fef5e4]', text: 'text-[#f9c851]' },
-    { bg: 'bg-[#fcebee]', text: 'text-[#f1556c]' },
+    { bg: 'bg-[#e8edfa]', text: 'text-[#3e60d5]' }, // a-e
+    { bg: 'bg-[#e8e6f1]', text: 'text-[#6b5eae]' }, // f-j
+    { bg: 'bg-[#ebf5f3]', text: 'text-[#1abc9c]' }, // k-o
+    { bg: 'bg-[#fef5e4]', text: 'text-[#f9c851]' }, // p-t
+    { bg: 'bg-[#fcebee]', text: 'text-[#f1556c]' }, // u-z
   ];
-  const char = (displayName?.[0] || slug?.[0] || '?').toLowerCase();
+  
+  const char = (displayName?.[0] || slug?.[0] || '?').toUpperCase();
   const charCode = char.charCodeAt(0);
-  const colorIdx = charCode >= 97 && charCode <= 122 ? Math.floor((charCode - 97) / 5) : 0;
-  let { bg, text } = colors[colorIdx] || colors[0];
+  // Используем модуль 5 для стабильного выбора цвета из массива
+  const colorIdx = charCode % 5;
+  let { bg, text } = colors[colorIdx];
   
   if (!isActive) {
       bg = 'bg-[#f0f1f2]';

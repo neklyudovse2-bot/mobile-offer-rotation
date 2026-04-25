@@ -76,7 +76,7 @@ export default async function AppSettingsPage({ params }: { params: Params }) {
       {/* ПРАВКА 1: AdminNav вне узкого контейнера */}
       <AdminNav lastSync={lastSync} />
       
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="max-w-7xl mx-auto px-6 py-6">
         <OfferSettings 
           app={app} 
           initialOffers={initialOffers} 
