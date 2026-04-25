@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { sql } from '@/lib/db';
 import { getLoansCollection, getFirestore, extractSlug } from '@/lib/firebase';
 import { APP_MAPPING } from '@/config/mapping';
@@ -124,6 +125,10 @@ async function handleRequest(request: Request) {
       });
 
       await batch.commit();
+      
+      // Инвалидируем кэш дашборда чтобы свежие данные показались сразу
+      revalidateTag('dashboard', 'page');
+
       results.push({
         app_id: app.appId,
         sort_field: app.sortField,

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { cookies } from 'next/headers';
 import { sql } from '@/lib/db';
 import { getLoansCollection } from '@/lib/firebase';
@@ -82,6 +83,10 @@ export async function POST(request: Request) {
     }
 
     console.log('[OVERRIDE] END');
+    
+    // Инвалидируем кэш дашборда после изменений
+    revalidateTag('dashboard', 'page');
+    
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error('[OVERRIDE] CRASH:', error.message);
