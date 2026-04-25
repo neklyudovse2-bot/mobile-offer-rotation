@@ -12,12 +12,15 @@ export default async function StatsPage() {
   try { authenticated = await isAdminAuthenticated(); } catch (e) {}
   if (!authenticated) return <Login />;
 
-  const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
-  const lastSync = lastSyncRes[0]?.last_sync 
-    ? new Date(lastSyncRes[0].last_sync).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }) 
-    : '—';
+  const lastSyncRes = await sql`
+    SELECT MAX(synced_at) as last_sync, COUNT(*)::int as record_count 
+    FROM keitaro_stats
+  `;
+  const lastSyncAt = lastSyncRes[0]?.last_sync 
+    ? new Date(lastSyncRes[0].last_sync).toISOString() 
+    : null;
+  const recordCount = lastSyncRes[0]?.record_count || 0;
 
-  // Aggregated stats from all apps (latest sync)
   const stats = await sql`
     SELECT 
       offer_slug,
@@ -31,7 +34,6 @@ export default async function StatsPage() {
     ORDER BY revenue DESC
   `;
 
-  // Total KPIs
   const totalsRes = await sql`
     SELECT 
       SUM(clicks)::int as total_clicks,
@@ -45,11 +47,10 @@ export default async function StatsPage() {
 
   return (
     <div className="min-h-screen bg-white">
-      <AdminNav lastSync={lastSync} />
+      <AdminNav lastSyncAt={lastSyncAt} recordCount={recordCount} />
 
       <main className="max-w-[1200px] mx-auto px-6 py-12">
-        {/* Hero */}
-        <div className="mb-10">
+        <div className="mb-10 text-black">
           <h1 className="text-3xl font-semibold text-black tracking-tight mb-2">
             Статистика
           </h1>
@@ -58,8 +59,7 @@ export default async function StatsPage() {
           </p>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 text-black">
           <KpiCard label="Офферов" value={totals.total_offers || 0} />
           <KpiCard label="Кликов" value={(totals.total_clicks || 0).toLocaleString('ru-RU')} />
           <KpiCard label="Конверсий" value={totals.total_conversions || 0} />
@@ -69,7 +69,6 @@ export default async function StatsPage() {
           />
         </div>
 
-        {/* Table */}
         <AggregatedStatsTable rows={stats.map((s: any) => ({
           slug: s.offer_slug,
           clicks: s.clicks,

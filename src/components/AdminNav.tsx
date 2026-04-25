@@ -2,8 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import SyncIndicator from './SyncIndicator';
 
-export default function AdminNav({ lastSync }: { lastSync?: string }) {
+interface Props {
+  lastSyncAt?: string | null;
+  recordCount?: number;
+}
+
+export default function AdminNav({ lastSyncAt, recordCount }: Props) {
   const pathname = usePathname();
 
   const isActive = (path: string) => {
@@ -61,10 +67,7 @@ export default function AdminNav({ lastSync }: { lastSync?: string }) {
             </Link>
           </nav>
           
-          <div className="flex items-center gap-2 text-xs text-[#666]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#0070f3]" />
-            <span>Sync · {lastSync || '—'}</span>
-          </div>
+          <SyncIndicator lastSyncAt={lastSyncAt || null} recordCount={recordCount} />
         </div>
       </div>
     </header>

@@ -20,12 +20,15 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
   try { authenticated = await isAdminAuthenticated(); } catch (e) {}
   if (!authenticated) return <Login />;
 
-  const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
-  const lastSync = lastSyncRes[0]?.last_sync 
-    ? new Date(lastSyncRes[0].last_sync).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }) 
-    : '—';
+  const lastSyncRes = await sql`
+    SELECT MAX(synced_at) as last_sync, COUNT(*)::int as record_count 
+    FROM keitaro_stats
+  `;
+  const lastSyncAt = lastSyncRes[0]?.last_sync 
+    ? new Date(lastSyncRes[0].last_sync).toISOString() 
+    : null;
+  const recordCount = lastSyncRes[0]?.record_count || 0;
 
-  // Stats for this specific app (latest sync)
   const stats = await sql`
     SELECT 
       offer_slug,
@@ -40,7 +43,6 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
     ORDER BY revenue DESC
   `;
 
-  // Total KPIs for this app
   const totalsRes = await sql`
     SELECT 
       SUM(clicks)::int as total_clicks,
@@ -55,19 +57,17 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
 
   return (
     <div className="min-h-screen bg-white">
-      <AdminNav lastSync={lastSync} />
+      <AdminNav lastSyncAt={lastSyncAt} recordCount={recordCount} />
 
-      <main className="max-w-[1200px] mx-auto px-6 py-12">
-        {/* Breadcrumbs */}
+      <main className="max-w-[1200px] mx-auto px-6 py-12 text-black">
         <nav className="flex items-center gap-1.5 text-xs text-[#666] mb-4">
           <Link href="/admin/stats" className="hover:text-black transition-colors">
             Статистика
           </Link>
-          <ChevronRight className="w-3 h-3" />
+          <ChevronRight className="w-3 h-3 text-black" />
           <span className="text-black">{app.name}</span>
         </nav>
 
-        {/* Hero */}
         <div className="mb-10 flex items-end justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
@@ -90,8 +90,7 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
           </Link>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 text-black">
           <KpiCard label="Офферов" value={totals.total_offers || 0} />
           <KpiCard label="Кликов" value={(totals.total_clicks || 0).toLocaleString('ru-RU')} />
           <KpiCard label="Конверсий" value={totals.total_conversions || 0} />
@@ -101,7 +100,6 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
           />
         </div>
 
-        {/* Table */}
         <AggregatedStatsTable rows={stats.map((s: any) => ({
           slug: s.offer_slug,
           clicks: s.clicks,
@@ -120,7 +118,7 @@ function KpiCard({ label, value }: { label: string; value: string | number }) {
       <p className="text-xs text-[#666] uppercase tracking-wider mb-2">
         {label}
       </p>
-      <p className="text-2xl font-semibold text-black tabular-nums tracking-tight">
+      <p className="text-2xl font-semibold text-black tabular-nums tracking-tight text-black">
         {value}
       </p>
     </div>

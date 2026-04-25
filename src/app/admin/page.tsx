@@ -5,9 +5,8 @@ import { sql } from '@/lib/db';
 import { getFirestore } from '@/lib/firebase';
 import Link from 'next/link';
 import RecalculateButton from '@/components/RecalculateButton';
-import RecalculateAppButton from '@/components/RecalculateAppButton';
 import AdminNav from '@/components/AdminNav';
-import { RefreshCw } from 'lucide-react';
+import { Settings, BarChart3, RefreshCw, Package } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -24,10 +23,11 @@ export default async function AdminPage() {
 
   if (errorMsg) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-6">
-        <div className="bg-white p-8 rounded-md border border-[#eaeaea] max-w-md w-full text-center">
-          <h1 className="text-base font-semibold text-black mb-2">Configuration error</h1>
-          <p className="text-[#666] text-sm">{errorMsg}</p>
+      <div className="min-h-screen bg-[#f5f6f8] flex items-center justify-center p-6">
+        <div className="bg-white p-8 rounded-lg border border-[#e9ebec] shadow-lg max-w-md w-full text-center">
+          <Settings className="w-12 h-12 text-[#f1556c] mx-auto mb-6" />
+          <h1 className="text-xl font-semibold text-[#313a46] mb-2 uppercase tracking-tight">Configuration Error</h1>
+          <p className="text-[#6c757d] text-sm mb-6 leading-relaxed">{errorMsg}.</p>
         </div>
       </div>
     );
@@ -37,10 +37,14 @@ export default async function AdminPage() {
     return <Login />;
   }
 
-  const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
-  const lastSync = lastSyncRes[0]?.last_sync 
-    ? new Date(lastSyncRes[0].last_sync).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }) 
-    : '—';
+  const lastSyncRes = await sql`
+    SELECT MAX(synced_at) as last_sync, COUNT(*)::int as record_count 
+    FROM keitaro_stats
+  `;
+  const lastSyncAt = lastSyncRes[0]?.last_sync 
+    ? new Date(lastSyncRes[0].last_sync).toISOString() 
+    : null;
+  const recordCount = lastSyncRes[0]?.record_count || 0;
 
   let firestore;
   try { firestore = getFirestore(); } catch(e) {}
@@ -48,7 +52,7 @@ export default async function AdminPage() {
   const appsData = [];
 
   for (const app of APP_MAPPING) {
-    let topOffers: Array<{slug: string, displayName: string, pos: number, epc: number, zone: 'pin' | 'auto' | 'default'}> = [];
+    let topOffers: Array<{slug: string, pos: number, epc: number, zone: 'pin' | 'auto' | 'default'}> = [];
     let metrics = { active: 0, hidden: 0, pinned: 0, total: 0 };
 
     if (firestore) {
@@ -65,26 +69,19 @@ export default async function AdminPage() {
         const isAct = data.active !== false;
         if (isAct) metrics.active++; else metrics.hidden++;
         const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
-        if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) metrics.pinned++;
+        if (ov?.manual_pin) metrics.pinned++;
       });
 
       const snapshotTop = await firestore.collection(app.appId).doc('ru').collection('loans').orderBy(app.sortField, 'asc').limit(3).get();
       topOffers = snapshotTop.docs.map(doc => {
         const data = doc.data();
         let slug = '';
-        try { slug = new URL(data.url).searchParams.get('aff_sub3') || ''; } catch(e) {}
-        const displayName = data.title || slug || doc.id;
-        const ov = overrides.find((o: any) => o.offer_slug === (slug || doc.id));
+        try { slug = new URL(data.url).searchParams.get('aff_sub3') || data.title || doc.id; } catch(e) { slug = doc.id; }
+        const ov = overrides.find((o: any) => o.offer_slug === slug);
         let zone: 'pin' | 'auto' | 'default' = 'default';
         if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) zone = 'pin';
         else if (ov?.auto_priority !== null && ov?.auto_priority !== undefined) zone = 'auto';
-        return { 
-          slug: slug || doc.id, 
-          displayName,
-          pos: data[app.sortField], 
-          epc: epcMap.get(slug || doc.id) || 0, 
-          zone 
-        };
+        return { slug, pos: data[app.sortField], epc: epcMap.get(slug) || 0, zone };
       });
     }
 
@@ -92,116 +89,87 @@ export default async function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
-      <AdminNav lastSync={lastSync} />
+    <div className="min-h-screen bg-[#f5f6f8] text-[#313a46]">
+      <AdminNav lastSyncAt={lastSyncAt} recordCount={recordCount} />
 
-      <main className="max-w-[1200px] mx-auto px-6 py-12">
-        {/* Hero */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-semibold text-black tracking-tight mb-2">
-            Приложения
-          </h1>
-          <p className="text-sm text-[#666]">
-            Автоматическая ротация офферов по EPC · {APP_MAPPING.length} активных приложения
-          </p>
+      <main className="max-w-7xl mx-auto px-6 py-8 text-black">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-[#313a46] mb-1">Ротация офферов</h1>
+          <p className="text-sm text-[#6c757d]">Автоматическая ротация по EPC · {APP_MAPPING.length} приложения</p>
         </div>
 
-        {/* Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
           {appsData.map(app => (
-            <div 
-              key={app.appId}
-              className="border border-[#eaeaea] rounded-md bg-white flex flex-col"
-            >
-              {/* Header */}
-              <div className="p-5 border-b border-[#eaeaea]">
-                <div className="flex items-center justify-between mb-1">
-                  <h2 className="text-base font-semibold text-black">
-                    {app.name}
-                  </h2>
-                  <span className="text-xs text-[#666] tabular-nums">
-                    {app.appId}
-                  </span>
+            <div key={app.appId} className="bg-white rounded-lg border border-[#e9ebec] p-5" style={{ boxShadow: '0 0 35px 0 rgba(154,161,171,0.15)' }}>
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-xs font-semibold text-[#6c757d] uppercase tracking-wider mb-1">{app.name}</p>
+                  <p className="text-3xl font-bold text-[#313a46] leading-none tabular-nums">{app.metrics.active}</p>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-[#666] tabular-nums">
-                  <span>{app.metrics.active} активных</span>
-                  <span className="text-[#eaeaea]">·</span>
-                  <span>{app.metrics.hidden} скрытых</span>
-                  {app.metrics.pinned > 0 && (
-                    <>
-                      <span className="text-[#eaeaea]">·</span>
-                      <span>{app.metrics.pinned} закреплено</span>
-                    </>
-                  )}
+                <div className="w-10 h-10 rounded-full bg-[#e8edfa] flex items-center justify-center">
+                  <Package className="w-5 h-5 text-[#3e60d5]" />
                 </div>
               </div>
-
-              {/* Top offers */}
-              <div className="p-5 flex-1">
-                <p className="text-[11px] font-medium text-[#999] uppercase tracking-wider mb-3">
-                  Top offers
-                </p>
-                <div className="space-y-2">
-                  {app.topOffers.map((offer, i) => (
-                    <div key={offer.slug} className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xs text-[#999] tabular-nums w-4">
-                          {i + 1}
-                        </span>
-                        <span className="text-black truncate">
-                          {offer.displayName}
-                        </span>
-                        {offer.zone === 'pin' && (
-                          <span className="text-[10px] text-[#666] uppercase tracking-wider">
-                            pin
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-xs text-[#666] tabular-nums shrink-0 ml-2">
-                        {offer.epc.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Footer with 3 buttons */}
-              <div className="p-3 border-t border-[#eaeaea] space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <Link 
-                    href={`/admin/stats/${app.appId}`}
-                    className="flex items-center justify-center px-3 py-2 rounded-md 
-                               border border-[#eaeaea] bg-white text-sm font-medium 
-                               text-black hover:bg-[#fafafa] transition-colors"
-                  >
-                    Статистика
-                  </Link>
-                  <Link 
-                    href={`/admin/offers/${app.appId}`}
-                    className="flex items-center justify-center px-3 py-2 rounded-md 
-                               bg-black text-white text-sm font-medium 
-                               hover:bg-[#333] transition-colors"
-                  >
-                    Настроить
-                  </Link>
-                </div>
-                <RecalculateAppButton appId={app.appId} />
+              <div className="text-xs text-[#6c757d]">
+                <span className="text-[#f1556c] font-medium">{app.metrics.hidden} скрытых</span>
+                <span className="mx-1.5 text-[#e9ebec]">·</span>
+                <span className="text-[#6b5eae] font-medium">{app.metrics.pinned} закреплённых</span>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Recalculate strip */}
-        <div className="border border-[#eaeaea] rounded-md bg-white p-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <RefreshCw className="w-4 h-4 text-[#666]" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
+          {appsData.map(app => (
+            <div key={app.appId} className="bg-white rounded-lg border border-[#e9ebec]" style={{ boxShadow: '0 0 35px 0 rgba(154,161,171,0.15)' }}>
+              <div className="px-5 pt-5 pb-4 border-b border-[#f0f1f2]">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold text-[#313a46] capitalize">{app.name}</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-[#f5f6f8] text-[11px] font-medium font-mono text-[#6c757d]">{app.appId}</span>
+                </div>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-[11px] font-semibold text-[#98a6ad] uppercase tracking-wider mb-3">Топ 3 оффера</p>
+                <div className="space-y-2.5">
+                  {app.topOffers.map((offer, i) => (
+                    <div key={offer.slug} className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold ${
+                          offer.zone === 'pin' ? 'bg-[#6b5eae] text-white' : 
+                          offer.zone === 'auto' ? 'bg-[#3e60d5] text-white' :
+                          'bg-[#98a6ad] text-white'
+                        }`}>
+                          {i+1}
+                        </div>
+                        <span className="text-sm font-medium text-[#313a46] truncate max-w-[140px] tracking-tighter">{offer.slug}</span>
+                      </div>
+                      <span className="text-xs text-[#6c757d] tabular-nums text-black">{offer.epc.toFixed(1)} EPC</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="px-5 pb-5 pt-2 flex gap-2">
+                <Link href={`/admin/stats/${app.appId}`} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md border border-[#e9ebec] text-sm font-medium text-[#313a46] hover:bg-[#f5f6f8] transition-colors">
+                  <BarChart3 className="w-4 h-4 text-[#6c757d]" />
+                  Статистика
+                </Link>
+                <Link href={`/admin/offers/${app.appId}`} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-colors">
+                  <Settings className="w-4 h-4" />
+                  Настройки
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)] text-black">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-full bg-[#e8edfa] flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-[#3e60d5]" />
+            </div>
             <div>
-              <p className="text-sm font-medium text-black">
-                Пересчитать все приложения
-              </p>
-              <p className="text-xs text-[#666] mt-0.5">
-                Обновит Firestore по последним данным Keitaro для всех 3 приложений
-              </p>
+              <p className="text-sm font-semibold text-[#313a46] uppercase tracking-wide">Пересчитать все приложения</p>
+              <p className="text-xs text-[#6c757d] mt-0.5">Обновит Firestore по свежим данным Keitaro</p>
             </div>
           </div>
           <RecalculateButton />
