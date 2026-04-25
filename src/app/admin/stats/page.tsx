@@ -3,71 +3,94 @@ import Login from '@/components/Login';
 import { sql } from '@/lib/db';
 import AdminNav from '@/components/AdminNav';
 import AggregatedStatsTable from '@/components/AggregatedStatsTable';
-import { ChevronDown } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function StatsPage() {
-  if (!(await isAdminAuthenticated())) return <Login />;
+  let authenticated = false;
+  try { authenticated = await isAdminAuthenticated(); } catch (e) {}
+  if (!authenticated) return <Login />;
 
   const lastSyncRes = await sql`SELECT MAX(synced_at) as last_sync FROM keitaro_stats`;
-  const lastSync = lastSyncRes[0]?.last_sync ? new Date(lastSyncRes[0].last_sync).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '...';
+  const lastSync = lastSyncRes[0]?.last_sync 
+    ? new Date(lastSyncRes[0].last_sync).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' }) 
+    : '—';
 
-  // 1. Получаем статистику Keitaro
+  // Aggregated stats from all apps (latest sync)
   const stats = await sql`
-     SELECT s.* FROM keitaro_stats s 
-     WHERE s.synced_at = (SELECT MAX(synced_at) FROM keitaro_stats)
+    SELECT 
+      offer_slug,
+      SUM(clicks)::int as clicks,
+      SUM(conversions)::int as conversions,
+      SUM(revenue)::numeric as revenue,
+      CASE WHEN SUM(clicks) > 0 THEN (SUM(revenue)::numeric / SUM(clicks)::numeric) ELSE 0 END as epc
+    FROM keitaro_stats
+    WHERE synced_at = (SELECT MAX(synced_at) FROM keitaro_stats)
+    GROUP BY offer_slug
+    ORDER BY revenue DESC
   `;
 
-  // 2. Группируем по офферу (slug)
-  const groupedMap = new Map();
-
-  stats.forEach((row: any) => {
-    const slug = row.offer_slug || 'n/a';
-    if (!groupedMap.has(slug)) {
-      groupedMap.set(slug, {
-        slug: slug,
-        displayName: slug,
-        clicks: 0,
-        conversions: 0,
-        revenue: 0
-      });
-    }
-
-    const item = groupedMap.get(slug);
-    item.clicks += parseInt(row.clicks) || 0;
-    item.conversions += parseInt(row.conversions) || 0;
-    item.revenue += parseFloat(row.revenue) || 0;
-  });
-
-  // Преобразуем в массив и считаем EPC
-  const aggregatedData = Array.from(groupedMap.values()).map(item => ({
-    ...item,
-    epc: item.clicks > 0 ? item.revenue / item.clicks : 0
-  }));
+  // Total KPIs
+  const totalsRes = await sql`
+    SELECT 
+      SUM(clicks)::int as total_clicks,
+      SUM(conversions)::int as total_conversions,
+      SUM(revenue)::numeric as total_revenue,
+      COUNT(DISTINCT offer_slug)::int as total_offers
+    FROM keitaro_stats
+    WHERE synced_at = (SELECT MAX(synced_at) FROM keitaro_stats)
+  `;
+  const totals = totalsRes[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 border-black">
+    <div className="min-h-screen bg-white">
       <AdminNav lastSync={lastSync} />
 
-      <main className="max-w-7xl mx-auto px-6 py-10">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">Статистика</h1>
-            <p className="text-slate-500 text-sm mt-1 leading-none">Агрегированно по всем приложениям за последние 7 дней</p>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 shadow-sm flex items-center gap-4 cursor-default group hover:border-slate-300 transition-all">
-             <div className="flex flex-col">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Период</span>
-                <span className="text-sm font-semibold text-slate-700 leading-none">Последние 7 дней</span>
-             </div>
-             <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-900 transition-colors" />
-          </div>
-        </header>
-        
-        <AggregatedStatsTable data={aggregatedData} />
+      <main className="max-w-[1200px] mx-auto px-6 py-12">
+        {/* Hero */}
+        <div className="mb-10">
+          <h1 className="text-3xl font-semibold text-black tracking-tight mb-2">
+            Статистика
+          </h1>
+          <p className="text-sm text-[#666]">
+            Агрегировано по всем приложениям · последние 7 дней
+          </p>
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+          <KpiCard label="Офферов" value={totals.total_offers || 0} />
+          <KpiCard label="Кликов" value={(totals.total_clicks || 0).toLocaleString('ru-RU')} />
+          <KpiCard label="Конверсий" value={totals.total_conversions || 0} />
+          <KpiCard 
+            label="Revenue" 
+            value={`${Math.round(totals.total_revenue || 0).toLocaleString('ru-RU')} ₽`} 
+          />
+        </div>
+
+        {/* Table */}
+        <AggregatedStatsTable rows={stats.map((s: any) => ({
+          slug: s.offer_slug,
+          clicks: s.clicks,
+          conversions: s.conversions,
+          revenue: parseFloat(s.revenue),
+          epc: parseFloat(s.epc),
+        }))} />
       </main>
+    </div>
+  );
+}
+
+function KpiCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="border border-[#eaeaea] rounded-md p-5 bg-white">
+      <p className="text-xs text-[#666] uppercase tracking-wider mb-2">
+        {label}
+      </p>
+      <p className="text-2xl font-semibold text-black tabular-nums tracking-tight">
+        {value}
+      </p>
     </div>
   );
 }

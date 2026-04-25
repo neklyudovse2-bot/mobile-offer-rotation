@@ -1,38 +1,38 @@
 'use client';
 
 import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function RecalculateButton() {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const handleClick = async () => {
-    if (!confirm('Вы уверены, что хотите запустить ротацию вручную?')) return;
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/recalculate', { method: 'POST' });
+      const res = await fetch('/api/rotation/run', { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        alert('Ротация завершена успешно!');
-        window.location.reload();
+        router.refresh();
       } else {
-        alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        alert('Ошибка: ' + (data.error || 'неизвестная'));
       }
-    } catch (e: any) {
-      alert('Ошибка соединения: ' + e.message);
+    } catch (e) {
+      alert('Ошибка соединения');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <button 
+    <button
       onClick={handleClick}
       disabled={loading}
-      className={`px-5 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-all flex items-center gap-2 disabled:opacity-50`}
+      className="px-4 py-2 rounded-md bg-black text-white text-sm font-medium 
+                 hover:bg-[#333] transition-colors disabled:opacity-50 
+                 disabled:cursor-not-allowed"
     >
-      <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-      {loading ? 'Синхронизация...' : 'Запустить'}
+      {loading ? 'Запуск…' : 'Запустить'}
     </button>
   );
 }

@@ -2,53 +2,71 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, BarChart3, RefreshCw } from 'lucide-react';
 
 export default function AdminNav({ lastSync }: { lastSync?: string }) {
   const pathname = usePathname();
 
-  const isActive = (path: string) => pathname === path || (path !== '/admin' && pathname.startsWith(path));
-
-  const tabClass = (active: boolean) => `
-    flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium
-    transition-colors
-    ${active 
-    ? 'bg-[#e8edfa] text-[#3e60d5]' 
-    : 'text-[#6c757d] hover:bg-[#f5f6f8] hover:text-[#313a46]'
+  const isActive = (path: string) => {
+    if (path === '/admin') {
+      return pathname === '/admin' || pathname.startsWith('/admin/offers');
     }
-  `;
+    if (path === '/admin/stats') {
+      return pathname.startsWith('/admin/stats');
+    }
+    return false;
+  };
 
   return (
-    <header className="bg-white border-b border-[#e9ebec] sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex items-center justify-between h-16">
-        
-          {/* Лого слева */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-md bg-[#3e60d5] flex items-center justify-center">
-              <RefreshCw className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-base font-semibold text-[#313a46]">
-              Rotation Admin
-            </span>
-          </div>
+    <header className="border-b border-[#eaeaea] bg-white">
+      <div className="max-w-[1200px] mx-auto px-6">
+        <div className="flex items-center justify-between h-14">
           
-          {/* Табы по центру */}
-          <nav className="flex items-center gap-1">
-            <Link href="/admin" className={tabClass(isActive('/admin'))}>
-              <Home className="w-4 h-4" />
-              Главная
+          {/* Лого слева */}
+          <Link href="/admin" className="flex items-center gap-2 group">
+            <div className="w-6 h-6 bg-black rounded-sm flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1L13 12H1L7 1Z" fill="white"/>
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-black">
+              Rotation
+            </span>
+          </Link>
+          
+          {/* Табы */}
+          <nav className="flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+            <Link 
+              href="/admin" 
+              className={`text-sm transition-colors relative py-4 ${
+                isActive('/admin') 
+                  ? 'text-black font-medium' 
+                  : 'text-[#666] hover:text-black'
+              }`}
+            >
+              Приложения
+              {isActive('/admin') && (
+                <span className="absolute bottom-0 left-0 right-0 h-px bg-black" />
+              )}
             </Link>
-            <Link href="/admin/stats" className={tabClass(isActive('/admin/stats'))}>
-              <BarChart3 className="w-4 h-4" />
+            <Link 
+              href="/admin/stats" 
+              className={`text-sm transition-colors relative py-4 ${
+                isActive('/admin/stats') 
+                  ? 'text-black font-medium' 
+                  : 'text-[#666] hover:text-black'
+              }`}
+            >
               Статистика
+              {isActive('/admin/stats') && (
+                <span className="absolute bottom-0 left-0 right-0 h-px bg-black" />
+              )}
             </Link>
           </nav>
           
-          {/* Sync время справа */}
-          <div className="flex items-center gap-2 text-xs text-[#6c757d]">
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>{lastSync}</span>
+          {/* Sync */}
+          <div className="flex items-center gap-2 text-xs text-[#666]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#0070f3]" />
+            <span>Sync · {lastSync || '—'}</span>
           </div>
         </div>
       </div>

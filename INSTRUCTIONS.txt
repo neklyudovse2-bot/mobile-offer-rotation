@@ -1,0 +1,230 @@
+ЗАДАНИЕ для Marcus Vitruvius
+Тема: Полная замена дизайна на Vercel-style
+
+======================================================================
+КРИТИЧНО
+======================================================================
+
+Владелец отверг текущий стиль. Полностью переписываем все 4 страницы 
+в стиле Vercel (чёрно-белый минимализм, светлая тема, без цветовых 
+акцентов кроме одной синей точки для sync-индикатора).
+
+ВАЖНО:
+- НЕ ПРАВИТЬ файлы. Заменить ЦЕЛИКОМ. Скопировать содержимое и 
+  перезаписать файл.
+- НЕ ИМПРОВИЗИРОВАТЬ. Если в коде нет какой-то фичи которая была — 
+  значит её решили убрать.
+- НЕ ТРОГАТЬ API, SQL, логику. Только UI компоненты.
+- ВСЕ файлы написаны под текущую структуру проекта (Next.js 16, 
+  Tailwind v4, Geist font).
+
+======================================================================
+ШРИФТ
+======================================================================
+
+Используем Geist (Vercel's official font) через next/font/google.
+Импорт настроен в layout.tsx ниже. Inter больше не нужен.
+
+======================================================================
+ДИЗАЙН-ТОКЕНЫ (использовать только эти цвета)
+======================================================================
+
+Фон: #ffffff (чисто белый, не серый)
+Текст основной: #000000
+Текст вторичный: #666
+Текст приглушённый: #999
+Границы: #eaeaea
+Hover bg: #fafafa
+Sync indicator: #0070f3 (синяя точка)
+
+Чёрный для primary кнопок (bg-black, hover bg-[#333])
+Белый для secondary (border #eaeaea)
+
+ВЕЗДЕ rounded-md (6px), не больше.
+ВЕЗДЕ 1px границы, без shadow.
+
+======================================================================
+ФАЙЛЫ ДЛЯ ЗАМЕНЫ
+======================================================================
+
+Заменить ЦЕЛИКОМ содержимое следующих 8 файлов на код ниже:
+
+1. src/app/globals.css
+2. src/app/layout.tsx  
+3. src/components/AdminNav.tsx
+4. src/components/RecalculateButton.tsx
+5. src/components/AggregatedStatsTable.tsx
+6. src/components/OfferSettings.tsx
+7. src/app/admin/page.tsx
+8. src/app/admin/stats/page.tsx
+9. src/app/admin/stats/[app_id]/page.tsx
+10. src/app/admin/offers/[app_id]/page.tsx
+
+Все коды ниже. Скопируй ровно. Не правь.
+
+======================================================================
+ФАЙЛ 1: src/app/globals.css
+======================================================================
+
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background: #ffffff;
+  color: #000000;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+======================================================================
+ФАЙЛ 2: src/app/layout.tsx
+======================================================================
+
+import type { Metadata } from "next";
+import { Geist } from "next/font/google";
+import "./globals.css";
+
+const geist = Geist({ 
+  subsets: ["latin", "cyrillic"], 
+  weight: ["400", "500", "600", "700"],
+  variable: '--font-geist-sans',
+});
+
+export const metadata: Metadata = {
+  title: "Rotation Admin",
+  description: "Offer Rotation Management System",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="ru" className={geist.variable}>
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
+
+======================================================================
+ФАЙЛ 3: src/components/AdminNav.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. AdminNav.tsx)
+
+======================================================================
+ФАЙЛ 4: src/components/RecalculateButton.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. RecalculateButton.tsx)
+
+======================================================================
+ФАЙЛ 5: src/components/AggregatedStatsTable.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. AggregatedStatsTable.tsx)
+
+======================================================================
+ФАЙЛ 6: src/components/OfferSettings.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. OfferSettings.tsx)
+
+======================================================================
+ФАЙЛ 7: src/app/admin/page.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. admin-page.tsx)
+
+======================================================================
+ФАЙЛ 8: src/app/admin/stats/page.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. stats-page.tsx)
+
+======================================================================
+ФАЙЛ 9: src/app/admin/stats/[app_id]/page.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. stats-app-page.tsx)
+
+======================================================================
+ФАЙЛ 10: src/app/admin/offers/[app_id]/page.tsx
+======================================================================
+
+(содержимое в отдельном файле, см. offers-app-page.tsx)
+
+======================================================================
+ВАЖНЫЕ ЗАМЕЧАНИЯ ПО ПРОЕКТУ
+======================================================================
+
+1. /admin/stats/page.tsx использует поле `campaign_id` для фильтрации.
+   Если в keitaro_stats нет такого поля — поправить SQL в файле под 
+   реальные имена столбцов.
+
+2. /admin/stats/[app_id]/page.tsx тоже использует campaign_id. Если у 
+   тебя данные привязаны к app_id или офферам напрямую — адаптируй 
+   запрос (но НЕ меняй структуру JSX).
+
+3. APP_MAPPING из @/config/mapping должен иметь поля: appId, name, 
+   sortField, campaignId. Проверь.
+
+4. View global_epc_7d и per_app_epc_7d должны существовать. Если их 
+   нет — сообщи владельцу, не правь сам.
+
+5. Если /admin/stats/page.tsx или /admin/stats/[app_id]/page.tsx 
+   используют другую структуру данных (через Firestore например) — 
+   адаптируй ТОЛЬКО data fetching часть, JSX оставь как есть.
+
+======================================================================
+ПОРЯДОК РАБОТЫ
+======================================================================
+
+1. Замени все 10 файлов ЦЕЛИКОМ.
+
+2. Если на этапе build TypeScript ругается — исправь ТОЛЬКО типы 
+   (any[] и т.п.), не трогая JSX и className.
+
+3. Деплой через push в main.
+
+4. Открой все 4 страницы:
+   - https://mobile-offer-rotation.vercel.app/admin
+   - https://mobile-offer-rotation.vercel.app/admin/stats
+   - https://mobile-offer-rotation.vercel.app/admin/stats/ios-9
+   - https://mobile-offer-rotation.vercel.app/admin/offers/ios-9
+
+5. По каждой — Ctrl+Shift+R (hard reload) и скрин.
+
+6. Все 4 скрина в чат одним сообщением.
+
+ЕСЛИ ВОЗНИКЛИ ВОПРОСЫ — спроси ДО начала. Не додумывай.

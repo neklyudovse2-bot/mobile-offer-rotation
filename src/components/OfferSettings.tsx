@@ -2,68 +2,32 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { Settings, BarChart3, RefreshCw, Pin, TrendingUp, Circle, EyeOff, ChevronRight } from 'lucide-react';
+import { RefreshCw, Pin } from 'lucide-react';
 
-function PinEditor({ 
-  initialValue, 
-  onSave 
-}: { 
-  initialValue: number | null;
-  onSave: (val: number | null) => void;
-}) {
-  const [value, setValue] = useState(
-    initialValue === null || initialValue === undefined ? '' : String(initialValue)
-  );
-  const [saved, setSaved] = useState(true);
-
-  useEffect(() => {
-    setValue(initialValue === null || initialValue === undefined ? '' : String(initialValue));
-    setSaved(true);
-  }, [initialValue]);
-
-  const handleSave = () => {
-    const num = value === '' ? null : parseInt(value);
-    const clean = (num === null || num === 0 || isNaN(num)) ? null : num;
-    onSave(clean);
-    setSaved(true);
-  };
-
-  return (
-    <div className="flex items-center gap-1 justify-center">
-      <input 
-        type="text"
-        inputMode="numeric"
-        pattern="[0-9]*"
-        value={value}
-        placeholder="—"
-        onChange={(e) => {
-          setValue(e.target.value.replace(/[^0-9]/g, ''));
-          setSaved(false);
-        }}
-        className={`w-14 px-2 py-1.5 text-center text-sm rounded-md border tabular-nums transition-all outline-none
-          ${!saved || (initialValue !== null && initialValue > 0)
-            ? 'border-[#6b5eae] bg-[#f5f3fa] text-[#6b5eae] ring-2 ring-[#e8e6f1]' 
-            : 'border-[#e9ebec] text-[#313a46] focus:border-[#3e60d5] focus:ring-2 focus:ring-[#e8edfa]'
-          }`}
-      />
-      {!saved && (
-        <button 
-          onClick={handleSave}
-          className="px-2 py-1.5 text-xs font-black bg-[#3e60d5] text-white rounded-md hover:bg-[#324ea7] transition-all active:scale-95 shadow-sm"
-        >
-          ✓
-        </button>
-      )}
-    </div>
-  );
+interface Offer {
+  slug: string;
+  hasSlug: boolean;
+  docId: string;
+  displayName: string;
+  isActive: boolean;
+  manualPin: number | null;
+  autoPriority: number | null;
+  initialPos: number;
+  currentPos: number;
+  epc: number;
 }
 
-export default function OfferSettings({ app, initialOffers, initialEpcMode }: any) {
+interface Props {
+  app: any;
+  initialOffers: Offer[];
+  initialEpcMode: string;
+}
+
+export default function OfferSettings({ app, initialOffers, initialEpcMode }: Props) {
   const initialRef = useRef({ offers: initialOffers, epcMode: initialEpcMode });
-  const [offers, setOffers] = useState(initialRef.current.offers);
+  const [offers, setOffers] = useState<Offer[]>(initialRef.current.offers);
   const [epcMode, setEpcMode] = useState(initialRef.current.epcMode);
-  const [saving, setSaving] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
   const router = useRouter();
 
   const updateEpcMode = async (mode: string) => {
@@ -83,15 +47,15 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const updateOffer = async (slug: string, docId: string, fields: any) => {
-    let prev: any[] = [];
-    setOffers((current: any[]) => {
+    let prev: Offer[] = [];
+    
+    setOffers((current) => {
       prev = [...current];
-      return current.map((o: any) => 
+      return current.map((o) => 
         o.slug === slug ? { 
           ...o, 
-          ...fields, 
-          isActive: fields.is_active ?? o.isActive, 
-          manualPin: fields.manual_pin ?? o.manualPin 
+          isActive: fields.is_active !== undefined ? fields.is_active : o.isActive,
+          manualPin: 'manual_pin' in fields ? fields.manual_pin : o.manualPin,
         } : o
       );
     });
@@ -110,7 +74,7 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to save');
+        throw new Error(data.error || 'Ошибка');
       }
     } catch (e: any) {
       setOffers(prev);
@@ -119,181 +83,171 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   };
 
   const recalculate = async () => {
-    if (!confirm('Пересчитать ротацию для этого приложения?')) return;
-    setSaving(true);
+    setRecalculating(true);
     try {
       const res = await fetch(`/api/admin/recalculate?app_id=${app.appId}`, { method: 'POST' });
       const data = await res.json();
       if (data.ok) {
-        alert('Пересчет завершен!');
         router.refresh();
+      } else {
+        alert('Ошибка пересчёта');
       }
     } catch (e) {
       alert('Ошибка соединения');
     } finally {
-      setSaving(false);
+      setRecalculating(false);
     }
   };
 
-  const pinZone = offers.filter((o: any) => o.manualPin !== null && o.isActive);
-  const autoZone = offers.filter((o: any) => o.manualPin === null && o.autoPriority !== null && o.isActive);
-  const defaultZone = offers.filter((o: any) => o.manualPin === null && o.autoPriority === null && o.isActive);
-  const inactiveZone = offers.filter((o: any) => !o.isActive);
+  // Sort by zone
+  const pinZone = offers
+    .filter((o) => o.manualPin !== null && o.isActive)
+    .sort((a, b) => (a.manualPin || 0) - (b.manualPin || 0));
+    
+  const autoZone = offers
+    .filter((o) => o.manualPin === null && o.autoPriority !== null && o.isActive)
+    .sort((a, b) => (a.autoPriority || 0) - (b.autoPriority || 0));
+    
+  const defaultZone = offers
+    .filter((o) => o.manualPin === null && o.autoPriority === null && o.isActive)
+    .sort((a, b) => a.initialPos - b.initialPos);
+    
+  const inactiveZone = offers
+    .filter((o) => !o.isActive)
+    .sort((a, b) => a.initialPos - b.initialPos);
 
-  pinZone.sort((a: any, b: any) => a.manualPin - b.manualPin);
-  autoZone.sort((a: any, b: any) => a.autoPriority - b.autoPriority);
-  defaultZone.sort((a: any, b: any) => a.initialPos - b.initialPos);
+  // Calculate display position
+  let posCounter = 0;
+  const withPositions = [
+    ...pinZone.map((o) => ({ ...o, displayPos: ++posCounter, zone: 'pin' as const })),
+    ...autoZone.map((o) => ({ ...o, displayPos: ++posCounter, zone: 'auto' as const })),
+    ...defaultZone.map((o) => ({ ...o, displayPos: ++posCounter, zone: 'default' as const })),
+  ];
 
-  const zoneBadgeClass = (zone: string, isActive: boolean) => {
-    if (!isActive) return 'bg-[#e9ebec] text-[#98a6ad]';
-    return {
-      pin: 'bg-[#6b5eae] text-white',
-      auto: 'bg-[#3e60d5] text-white',
-      default: 'bg-[#98a6ad] text-white',
-    }[zone] || 'bg-[#98a6ad] text-white';
-  };
-
-  const renderRow = (o: any, zone: string) => (
-    <tr key={`${o.slug}-${zone}`} className="border-b border-[#f0f1f2] hover:bg-[#f8f9fa] transition-colors text-black">
-      {/* ПРАВКА 4: Переместил Витрина вперед */}
-      <td className="px-5 py-3.5 text-center">
-        <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold ${zoneBadgeClass(zone, o.isActive)}`}>
-          #{o.currentPos}
-        </span>
-      </td>
-      <td className="px-5 py-3.5">
-        <div className="flex items-center gap-3 text-black">
-          <Avatar slug={o.slug} displayName={o.displayName} isActive={o.isActive} />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className={`text-sm font-medium ${o.isActive ? 'text-[#313a46]' : 'text-[#98a6ad]'}`}>
-                {o.displayName}
-              </span>
-              {!o.hasSlug && (
-                <span className="px-1.5 py-0.5 rounded bg-[#fcebee] text-[#f1556c] text-[9px] font-bold uppercase tracking-wider">
-                  NO SLUG
-                </span>
-              )}
-            </div>
-            {o.hasSlug && (
-              <div className="text-xs text-[#98a6ad] mt-0.5 font-mono truncate max-w-[150px]">
-                {o.slug}
-              </div>
-            )}
-          </div>
-        </div>
-      </td>
-      <td className="px-5 py-3.5 text-center">
-        <button
-          onClick={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
-          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold font-sans transition-all border
-            ${o.isActive 
-              ? 'bg-[#ebf5f3] text-[#1abc9c] border-[#1abc9c]/10 hover:bg-[#d4ebe4]' 
-              : 'bg-[#fcebee] text-[#f1556c] border-[#f1556c]/10 hover:bg-[#f5d4da]'
-            }`}
-        >
-          <span className={`w-1.5 h-1.5 rounded-full ${o.isActive ? 'bg-[#1abc9c]' : 'bg-[#f1556c]'}`} />
-          {o.isActive ? 'Активен' : 'Скрыт'}
-        </button>
-      </td>
-      <td className="px-5 py-3.5 text-center">
-        <PinEditor 
-          initialValue={o.manualPin}
-          onSave={(newValue) => {
-            fetch('/api/admin/override', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ app_id: app.appId, offer_slug: o.slug, doc_id: o.docId, manual_pin: newValue })
-            }).then(res => {
-              if (!res.ok) res.json().then(data => alert(data.error || 'Ошибка'));
-              else {
-                setOffers((curr: any[]) => curr.map((item: any) => item.slug === o.slug ? { ...item, manualPin: newValue } : item));
-              }
-            });
-          }}
-        />
-      </td>
-      <td className="px-5 py-3.5 text-right text-sm tabular-nums text-black">
-        {o.epc > 0 ? (
-          <span className={`font-semibold ${o.isActive ? 'text-[#1abc9c]' : 'text-[#98a6ad]'}`}>
-            {o.epc.toFixed(2)}
-          </span>
-        ) : (
-          <span className="text-[#98a6ad]">—</span>
-        )}
-      </td>
-    </tr>
-  );
+  let hiddenCounter = posCounter;
+  const hiddenWithPositions = inactiveZone.map((o) => ({ 
+    ...o, 
+    displayPos: ++hiddenCounter, 
+    zone: 'hidden' as const 
+  }));
 
   return (
-    <div className="space-y-6 text-black border-black">
-      <div className="mb-6">
-        <nav className="flex items-center gap-1.5 text-xs text-[#6c757d] mb-3">
-          <Link href="/admin" className="hover:text-[#3e60d5] transition-colors">Главная</Link>
-          <ChevronRight className="w-3 h-3 text-[#e9ebec]" />
-          <span className="text-[#313a46]">{app.name}</span>
-        </nav>
-        
-        <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* Controls bar */}
+      <div className="border border-[#eaeaea] rounded-md bg-white p-5 flex items-center justify-between">
+        <div className="flex items-center gap-6">
           <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold text-[#313a46] capitalize">{app.name}</h1>
-              <span className="px-2 py-0.5 rounded-full bg-white border border-[#e9ebec] text-[11px] font-bold font-mono text-[#6c757d]">
-                {app.appId}
-              </span>
-            </div>
-            <p className="text-sm text-[#6c757d]">Управление офферами и приоритетами</p>
+            <label className="block text-[11px] font-medium text-[#666] uppercase tracking-wider mb-2">
+              Метод ротации
+            </label>
+            <select 
+              value={epcMode} 
+              onChange={(e) => updateEpcMode(e.target.value)}
+              className="px-3 py-1.5 text-sm rounded-md border border-[#eaeaea] 
+                         bg-white text-black focus:outline-none focus:border-black 
+                         transition-colors cursor-pointer"
+            >
+              <option value="global">Глобальный (по всем приложениям)</option>
+              <option value="per_app">По приложению</option>
+            </select>
           </div>
-          
-          <Link href={`/admin/stats/${app.appId}`} className="flex items-center gap-2 px-4 py-2 rounded-md border border-[#e9ebec] bg-white text-sm font-medium text-[#313a46] hover:bg-[#f5f6f8] transition-colors shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
-            <BarChart3 className="w-4 h-4 text-[#6c757d]" />
-            Открыть статистику
-          </Link>
         </div>
-      </div>
-
-      <div className="bg-white rounded-lg border border-[#e9ebec] p-5 flex items-center justify-between shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
-        <div>
-          <label className="block text-[11px] font-bold text-[#6c757d] uppercase tracking-wider mb-2 text-black">Метод ротации</label>
-          <select value={epcMode} onChange={(e) => updateEpcMode(e.target.value)}
-            className="w-56 px-3 py-2 rounded-md border border-[#e9ebec] text-sm text-[#313a46] focus:outline-none focus:border-[#3e60d5] focus:ring-2 focus:ring-[#e8edfa] bg-white transition-all font-medium cursor-pointer"
-          >
-            <option value="global">Глобальный</option>
-            <option value="per_app">По приложению</option>
-          </select>
-        </div>
-        <button onClick={recalculate} disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-md bg-[#3e60d5] text-white text-sm font-medium hover:bg-[#324ea7] transition-all shadow-md active:scale-95 disabled:opacity-50"
+        <button 
+          onClick={recalculate}
+          disabled={recalculating}
+          className="flex items-center gap-2 px-4 py-2 rounded-md bg-black text-white 
+                     text-sm font-medium hover:bg-[#333] transition-colors 
+                     disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <RefreshCw className={`w-4 h-4 ${saving ? 'animate-spin' : ''}`} />
-          Пересчитать сейчас
+          <RefreshCw className={`w-3.5 h-3.5 ${recalculating ? 'animate-spin' : ''}`} />
+          {recalculating ? 'Пересчитываем…' : 'Пересчитать'}
         </button>
       </div>
 
-      <div className="bg-white rounded-lg border border-[#e9ebec] overflow-hidden shadow-[0_0_35px_0_rgba(154,161,171,0.15)]">
-        <table className="w-full border-collapse">
+      {/* Offers table */}
+      <div className="border border-[#eaeaea] rounded-md bg-white overflow-hidden">
+        <table className="w-full">
           <thead>
-            <tr className="bg-[#f5f6f8] border-b border-[#e9ebec]">
-              {/* ПРАВКА 4: Переместил Витрина вперед */}
-              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Витрина</th>
-              <th className="px-5 py-3 text-left text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Оффер</th>
-              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider">Статус</th>
-              <th className="px-5 py-3 text-center text-[11px] font-bold text-[#6c757d] uppercase tracking-wider text-[#3e60d5]">Manual PIN</th>
-              <th className="px-5 py-3 text-right text-[11px] font-bold text-[#6c757d] uppercase tracking-wider leading-none">EPC</th>
+            <tr className="border-b border-[#eaeaea] bg-[#fafafa]">
+              <th className="px-5 py-3 text-left text-[11px] font-medium 
+                             text-[#666] uppercase tracking-wider w-20">
+                Витрина
+              </th>
+              <th className="px-5 py-3 text-left text-[11px] font-medium 
+                             text-[#666] uppercase tracking-wider">
+                Оффер
+              </th>
+              <th className="px-5 py-3 text-center text-[11px] font-medium 
+                             text-[#666] uppercase tracking-wider w-32">
+                Статус
+              </th>
+              <th className="px-5 py-3 text-center text-[11px] font-medium 
+                             text-[#666] uppercase tracking-wider w-32">
+                Manual PIN
+              </th>
+              <th className="px-5 py-3 text-right text-[11px] font-medium 
+                             text-[#666] uppercase tracking-wider w-24">
+                EPC
+              </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#f0f1f2]">
-            {pinZone.length > 0 && <ZoneRows zone="pin" count={pinZone.length} />}
-            {pinZone.map((o: any) => renderRow(o, 'pin'))}
+          <tbody>
+            {/* Active zones */}
+            {pinZone.length > 0 && (
+              <ZoneSeparator label="Pin" count={pinZone.length} icon={<Pin className="w-3 h-3" />} />
+            )}
+            {pinZone.map((o, idx) => (
+              <OfferRow 
+                key={o.slug}
+                offer={o}
+                position={posCounter - autoZone.length - defaultZone.length - pinZone.length + idx + 1}
+                zone="pin"
+                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
+                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+              />
+            ))}
 
-            <ZoneRows zone="auto" count={autoZone.length} />
-            {autoZone.map((o: any) => renderRow(o, 'auto'))}
+            {(pinZone.length > 0 && autoZone.length > 0) && <ZoneSeparator label="Auto" count={autoZone.length} />}
+            {(pinZone.length === 0 && autoZone.length > 0) && <ZoneSeparator label="Auto" count={autoZone.length} />}
+            {autoZone.map((o, idx) => (
+              <OfferRow 
+                key={o.slug}
+                offer={o}
+                position={pinZone.length + idx + 1}
+                zone="auto"
+                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
+                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+              />
+            ))}
 
-            {defaultZone.length > 0 && <ZoneRows zone="default" count={defaultZone.length} />}
-            {defaultZone.map((o: any) => renderRow(o, 'default'))}
+            {defaultZone.length > 0 && (
+              <ZoneSeparator label="Default" count={defaultZone.length} />
+            )}
+            {defaultZone.map((o, idx) => (
+              <OfferRow 
+                key={o.slug}
+                offer={o}
+                position={pinZone.length + autoZone.length + idx + 1}
+                zone="default"
+                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
+                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+              />
+            ))}
 
-            {inactiveZone.length > 0 && <ZoneRows zone="hidden" count={inactiveZone.length} />}
-            {inactiveZone.map((o: any) => renderRow(o, 'hidden'))}
+            {/* Hidden */}
+            {inactiveZone.length > 0 && (
+              <ZoneSeparator label="Скрытые" count={inactiveZone.length} muted />
+            )}
+            {inactiveZone.map((o, idx) => (
+              <OfferRow 
+                key={o.slug}
+                offer={o}
+                position={pinZone.length + autoZone.length + defaultZone.length + idx + 1}
+                zone="hidden"
+                onToggleActive={() => updateOffer(o.slug, o.docId, { is_active: !o.isActive })}
+                onSavePin={(val) => updateOffer(o.slug, o.docId, { manual_pin: val })}
+              />
+            ))}
           </tbody>
         </table>
       </div>
@@ -301,23 +255,28 @@ export default function OfferSettings({ app, initialOffers, initialEpcMode }: an
   );
 }
 
-function ZoneRows({ zone, count }: { zone: string, count: number }) {
-  const styles: any = {
-    pin: { icon: Pin, bg: 'bg-[#e8e6f1]', text: 'text-[#6b5eae]', label: 'PIN-ЗОНА' },
-    auto: { icon: TrendingUp, bg: 'bg-[#e8edfa]', text: 'text-[#3e60d5]', label: 'AUTO-ЗОНА' },
-    default: { icon: Circle, bg: 'bg-[#f0f1f2]', text: 'text-[#98a6ad]', label: 'DEFAULT-ЗОНА' },
-    hidden: { icon: EyeOff, bg: 'bg-[#fcebee]', text: 'text-[#f1556c]', label: 'СКРЫТЫЕ' },
-  };
-  const { icon: Icon, bg, text, label } = styles[zone] || styles.default;
+function ZoneSeparator({ 
+  label, 
+  count, 
+  icon, 
+  muted 
+}: { 
+  label: string; 
+  count: number; 
+  icon?: React.ReactNode;
+  muted?: boolean;
+}) {
   return (
-    <tr className="bg-[#f8f9fa] border-y border-[#e9ebec]">
-      <td colSpan={5} className="px-5 py-2.5">
-        <div className="flex items-center gap-2 text-black">
-          <div className={`w-6 h-6 rounded-full ${bg} flex items-center justify-center`}>
-            <Icon className={`w-3.5 h-3.5 ${text}`} />
-          </div>
-          <span className={`text-[11px] font-bold ${text} uppercase tracking-wider`}>
-            {label} · {count}
+    <tr className="bg-[#fafafa] border-y border-[#eaeaea]">
+      <td colSpan={5} className="px-5 py-2">
+        <div className="flex items-center gap-2">
+          {icon && <span className="text-[#666]">{icon}</span>}
+          <span className={`text-[11px] font-medium uppercase tracking-wider 
+                            ${muted ? 'text-[#999]' : 'text-[#666]'}`}>
+            {label}
+          </span>
+          <span className="text-[11px] text-[#999] tabular-nums">
+            · {count}
           </span>
         </div>
       </td>
@@ -325,27 +284,143 @@ function ZoneRows({ zone, count }: { zone: string, count: number }) {
   );
 }
 
-function Avatar({ slug, displayName, isActive }: { slug: string, displayName: string, isActive: boolean }) {
-  const colors = [
-    { bg: 'bg-[#e8edfa]', text: 'text-[#3e60d5]' }, // a-e
-    { bg: 'bg-[#e8e6f1]', text: 'text-[#6b5eae]' }, // f-j
-    { bg: 'bg-[#ebf5f3]', text: 'text-[#1abc9c]' }, // k-o
-    { bg: 'bg-[#fef5e4]', text: 'text-[#f9c851]' }, // p-t
-    { bg: 'bg-[#fcebee]', text: 'text-[#f1556c]' }, // u-z
-  ];
-  const char = (displayName?.[0] || slug?.[0] || '?').toUpperCase();
-  const charCode = char.charCodeAt(0);
-  const colorIdx = charCode % 5;
-  let { bg, text } = colors[colorIdx];
+function OfferRow({ 
+  offer, 
+  position,
+  zone,
+  onToggleActive, 
+  onSavePin 
+}: { 
+  offer: Offer; 
+  position: number;
+  zone: 'pin' | 'auto' | 'default' | 'hidden';
+  onToggleActive: () => void;
+  onSavePin: (val: number | null) => void;
+}) {
+  const isHidden = zone === 'hidden';
   
-  if (!isActive) {
-      bg = 'bg-[#f0f1f2]';
-      text = 'text-[#98a6ad]';
-  }
+  return (
+    <tr className="border-b border-[#eaeaea] last:border-b-0 hover:bg-[#fafafa] transition-colors">
+      {/* Витрина */}
+      <td className="px-5 py-3">
+        <span className={`text-sm tabular-nums font-medium 
+                          ${isHidden ? 'text-[#999]' : 'text-black'}`}>
+          #{position}
+        </span>
+      </td>
+      
+      {/* Оффер */}
+      <td className="px-5 py-3">
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium 
+                            ${isHidden ? 'text-[#999]' : 'text-black'}`}>
+            {offer.displayName}
+          </span>
+          {offer.hasSlug ? (
+            <span className="text-xs text-[#999]">
+              {offer.slug}
+            </span>
+          ) : (
+            <span className="text-[10px] text-[#999] uppercase tracking-wider 
+                             border border-[#eaeaea] rounded px-1.5 py-0.5">
+              no slug
+            </span>
+          )}
+        </div>
+      </td>
+      
+      {/* Статус — pill toggle */}
+      <td className="px-5 py-3 text-center">
+        <button 
+          onClick={onToggleActive}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md 
+                      text-xs font-medium transition-colors border
+                      ${offer.isActive 
+                        ? 'border-[#eaeaea] text-black hover:bg-[#fafafa]' 
+                        : 'border-[#eaeaea] text-[#999] hover:bg-[#fafafa]'
+                      }`}
+        >
+          <span className={`w-1.5 h-1.5 rounded-full 
+                            ${offer.isActive ? 'bg-[#0070f3]' : 'bg-[#999]'}`} />
+          {offer.isActive ? 'Активен' : 'Скрыт'}
+        </button>
+      </td>
+      
+      {/* Manual PIN */}
+      <td className="px-5 py-3 text-center">
+        <PinEditor 
+          initialValue={offer.manualPin}
+          onSave={onSavePin}
+        />
+      </td>
+      
+      {/* EPC */}
+      <td className="px-5 py-3 text-right">
+        {offer.epc > 0 ? (
+          <span className={`text-sm font-medium tabular-nums 
+                            ${isHidden ? 'text-[#999]' : 'text-black'}`}>
+            {offer.epc.toFixed(2)}
+          </span>
+        ) : (
+          <span className="text-sm text-[#999]">—</span>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function PinEditor({ 
+  initialValue, 
+  onSave 
+}: { 
+  initialValue: number | null;
+  onSave: (val: number | null) => void;
+}) {
+  const [value, setValue] = useState(
+    initialValue === null || initialValue === undefined ? '' : String(initialValue)
+  );
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    setValue(initialValue === null || initialValue === undefined ? '' : String(initialValue));
+    setDirty(false);
+  }, [initialValue]);
+
+  const handleSave = () => {
+    const num = value === '' ? null : parseInt(value);
+    const clean = (num === null || num === 0 || isNaN(num)) ? null : num;
+    onSave(clean);
+    setDirty(false);
+  };
 
   return (
-    <div className={`w-9 h-9 rounded-full ${bg} flex items-center justify-center text-sm font-bold ${text} uppercase shadow-inner shrink-0`}>
-      {char}
+    <div className="flex items-center gap-1 justify-center">
+      <input 
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        value={value}
+        placeholder="—"
+        onChange={(e) => {
+          setValue(e.target.value.replace(/[^0-9]/g, ''));
+          setDirty(true);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && dirty) handleSave();
+        }}
+        className="w-12 px-2 py-1 text-center text-sm rounded-md border 
+                   border-[#eaeaea] text-black focus:outline-none 
+                   focus:border-black transition-colors tabular-nums"
+      />
+      {dirty && (
+        <button 
+          onClick={handleSave}
+          className="px-2 py-1 text-xs font-medium bg-black text-white 
+                     rounded-md hover:bg-[#333] transition-colors"
+        >
+          ✓
+        </button>
+      )}
     </div>
   );
 }
