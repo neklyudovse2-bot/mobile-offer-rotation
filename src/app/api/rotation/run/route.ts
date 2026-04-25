@@ -16,9 +16,8 @@ async function handleRequest(request: Request) {
   const url = new URL(request.url);
   const appIdParam = url.searchParams.get('app_id');
 
-  // Определяем источник: cron присылает заголовок или GET-запрос без параметров?
-  // Согласно инструкции: GET === cron, POST === user
-  const triggeredBy = request.headers.get('x-vercel-cron') || request.method === 'GET' ? 'cron' : 'user';
+  const isCron = !!request.headers.get('x-vercel-cron');
+  const triggeredBy = isCron ? 'cron' : 'user';
 
   try {
     const protocol = request.url.startsWith('https') ? 'https' : 'http';
