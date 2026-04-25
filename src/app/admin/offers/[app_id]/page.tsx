@@ -78,10 +78,10 @@ export default async function OffersAppPage({ params }: { params: Promise<{ app_
   });
 
   return (
-    <div className="min-h-screen bg-white font-sans text-black">
+    <div className="min-h-screen bg-white">
       <AdminNav lastSyncAt={lastSyncAt} recordCount={recordCount} />
 
-      <main className="max-w-[1200px] mx-auto px-6 py-12">
+      <main className="max-w-[1200px] mx-auto px-6 py-12 text-black">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-1.5 text-xs text-[#666] mb-4">
           <Link href="/admin" className="hover:text-black transition-colors font-medium">
@@ -92,13 +92,13 @@ export default async function OffersAppPage({ params }: { params: Promise<{ app_
         </nav>
 
         {/* Hero */}
-        <div className="mb-10 flex items-end justify-between border-b pb-6 border-slate-50">
+        <div className="mb-10 flex items-end justify-between">
           <div>
-            <div className="flex items-center gap-3 mb-2 text-black">
-              <h1 className="text-3xl font-semibold tracking-tight uppercase tracking-tighter">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-semibold text-black tracking-tight">
                 {app.name}
               </h1>
-              <span className="px-2 py-0.5 rounded-full bg-[#fafafa] border text-[11px] font-bold font-mono text-[#666]">
+              <span className="text-[11px] font-bold font-mono text-[#666] bg-[#fafafa] border border-[#eaeaea] px-2 py-0.5 rounded-full">
                 {app.appId}
               </span>
             </div>
@@ -108,13 +108,15 @@ export default async function OffersAppPage({ params }: { params: Promise<{ app_
           </div>
           <Link 
             href={`/admin/stats/${app.appId}`}
-            className="flex items-center gap-2 px-4 py-2 border rounded-md text-sm font-semibold hover:bg-slate-50 transition-all active:scale-95 text-black"
+            className="flex items-center gap-2 px-4 py-2 border border-[#eaeaea] rounded-md bg-white text-sm font-medium text-[#313a46] hover:bg-[#f5f6f8] transition-all active:scale-95"
+            style={{ boxShadow: '0 0 35px 0 rgba(154,161,171,0.15)' }}
           >
-            <BarChart3 className="w-4 h-4 text-black" />
+            <BarChart3 className="w-4 h-4 text-[#666]" />
             Открыть статистику
           </Link>
         </div>
 
+        {/* Settings */}
         <OfferSettings 
           app={app}
           initialOffers={initialOffers}

@@ -2,6 +2,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import Login from '@/components/Login';
 import { sql } from '@/lib/db';
 import AdminNav from '@/components/AdminNav';
+import { Clock, User } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -44,38 +45,62 @@ export default async function HistoryPage() {
           {history.length > 0 ? (
             <table className="w-full text-left text-sm">
               <thead className="bg-[#fafafa] border-b border-[#eaeaea]">
-                <tr className="text-xs text-[#666] uppercase tracking-wider font-medium">
+                <tr className="text-[11px] font-bold text-[#666] uppercase tracking-wider">
                   <th className="px-6 py-4">Дата</th>
                   <th className="px-6 py-4">Приложение</th>
                   <th className="px-6 py-4">Тип</th>
-                  <th className="px-6 py-4">Результат</th>
-                  <th className="px-6 py-4 text-right">Время</th>
+                  <th className="px-6 py-4 text-center">EPC mode</th>
+                  <th className="px-6 py-4 text-center">Офферов</th>
+                  <th className="px-6 py-4 text-center">Время</th>
+                  <th className="px-6 py-4 text-right">Статус</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#eaeaea]">
                 {history.map((h: any) => (
                   <tr key={h.id} className="hover:bg-[#fafafa] transition-colors">
-                    <td className="px-6 py-4 tabular-nums">
+                    <td className="px-6 py-4 tabular-nums text-[#666]">
                       {new Date(h.created_at).toLocaleString('ru-RU')}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-6 py-4 font-medium">
                       {h.app_id || 'Все приложения'}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="capitalize">{h.triggered_by}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${h.status === 'success' ? 'bg-[#0070f3]' : 'bg-[#ee0000]'}`} />
-                        {h.status === 'success' ? (
-                          <span>Успех ({h.offers_affected} офферов)</span>
+                      <div className="flex items-center gap-2 text-[#666]">
+                        {h.triggered_by === 'cron' ? (
+                          <><Clock className="w-3.5 h-3.5" /> Cron</>
                         ) : (
-                          <span className="text-[#ee0000]">{h.error_message}</span>
+                          <><User className="w-3.5 h-3.5" /> Ручной</>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-right tabular-nums text-[#666]">
+                    <td className="px-6 py-4 text-center text-[#666] text-xs font-mono">
+                      {h.epc_mode || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-center tabular-nums font-medium">
+                      {h.offers_affected}
+                    </td>
+                    <td className="px-6 py-4 text-center tabular-nums text-[#666]">
                       {h.duration_ms} мс
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {h.status === 'success' ? (
+                          <span className="text-[#0070f3] font-medium flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#0070f3]" />
+                            Успех
+                          </span>
+                        ) : (
+                          <span className="text-[#ee0000] font-medium flex items-center gap-1.5">
+                            <div className="w-1.5 h-1.5 rounded-full bg-[#ee0000]" />
+                            Ошибка
+                          </span>
+                        )}
+                      </div>
+                      {h.error_message && (
+                        <div className="text-[10px] text-[#ee0000] mt-1 max-w-[200px] truncate">
+                          {h.error_message}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
