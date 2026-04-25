@@ -73,10 +73,7 @@ export async function GET(request: Request) {
         }
       });
 
-      // Сортировка по весам
       pinZone.sort((a, b) => a.manual_pin - b.manual_pin);
-      
-      // Сортируем AUTO-зону по EPC DESC
       autoZone.sort((a, b) => b.epc - a.epc);
 
       // Правка 1: Сброс старых auto_priority
@@ -95,13 +92,12 @@ export async function GET(request: Request) {
       for (const offer of autoZone) {
         counter++;
         if (offer.epc !== prevEpc) {
-          priority = counter; // Новая позиция при новом EPC
+          priority = counter;
           prevEpc = offer.epc;
         }
         offer.auto_priority = priority;
       }
 
-      // Записываем в БД
       for (const o of autoZone) {
         await sql`
           INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
@@ -114,7 +110,7 @@ export async function GET(request: Request) {
 
       const finalList = [...pinZone, ...autoZone, ...defaultZone];
       const batch = firestore.batch();
-      const reportOffers = [];
+      const reportOffers: any[] = [];
 
       finalList.forEach((o, index) => {
         const pos = index + 1;
