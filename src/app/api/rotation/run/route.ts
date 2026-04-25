@@ -73,29 +73,48 @@ export async function GET(request: Request) {
         }
       });
 
+      // Сортировка по весам
       pinZone.sort((a, b) => a.manual_pin - b.manual_pin);
-      autoZone.sort((a, b) => b.epc - a.epc);
       
-      autoZone.forEach((o, i) => {
-        o.auto_priority = i + 1;
-      });
+      // Сортируем AUTO-зону по EPC DESC
+      autoZone.sort((a, b) => b.epc - a.epc);
 
+      // Правка 1: Сброс старых auto_priority
+      console.log('[ROTATION] resetting auto_priority for app:', app.appId);
+      await sql`
+        UPDATE offer_overrides 
+        SET auto_priority = NULL 
+        WHERE app_id = ${app.appId}
+      `;
+
+      // Правка 2: Назначаем auto_priority с учётом одинаковых EPC
+      let priority = 0;
+      let prevEpc: number | null = null;
+      let counter = 0;
+
+      for (const offer of autoZone) {
+        counter++;
+        if (offer.epc !== prevEpc) {
+          priority = counter; // Новая позиция при новом EPC
+          prevEpc = offer.epc;
+        }
+        offer.auto_priority = priority;
+      }
+
+      // Записываем в БД
       for (const o of autoZone) {
-        console.log('[ROTATION] before auto_priority UPSERT for', o.slug, 'new auto_priority:', o.auto_priority);
-        const insertResult = await sql`
+        await sql`
           INSERT INTO offer_overrides (app_id, offer_slug, auto_priority)
           VALUES (${app.appId}, ${o.slug}, ${o.auto_priority})
           ON CONFLICT (app_id, offer_slug) DO UPDATE SET auto_priority = EXCLUDED.auto_priority
-          RETURNING *
         `;
-        console.log('[ROTATION] UPSERT result:', JSON.stringify(insertResult));
       }
 
       defaultZone.sort((a, b) => a.currentPos - b.currentPos);
 
       const finalList = [...pinZone, ...autoZone, ...defaultZone];
       const batch = firestore.batch();
-      const reportOffers: any[] = [];
+      const reportOffers = [];
 
       finalList.forEach((o, index) => {
         const pos = index + 1;
@@ -104,7 +123,8 @@ export async function GET(request: Request) {
            slug: o.slug || o.data.title || o.id, 
            new_position: pos, 
            zone: o.manual_pin ? 'PIN' : (o.auto_priority ? 'AUTO' : 'DEFAULT'),
-           epc: o.epc || 0
+           epc: o.epc || 0,
+           auto_priority: o.auto_priority || null
         });
       });
 
