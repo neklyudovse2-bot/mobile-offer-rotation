@@ -2,7 +2,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import Login from '@/components/Login';
 import { APP_MAPPING } from '@/config/mapping';
 import { sql } from '@/lib/db';
-import { getFirestore } from '@/lib/firebase';
+import { getLoansCollection } from '@/lib/firebase';
 import AdminNav from '@/components/AdminNav';
 import Link from 'next/link';
 import { ChevronRight, BarChart3 } from 'lucide-react';
@@ -30,8 +30,7 @@ export default async function OffersAppPage({ params }: { params: Promise<{ app_
     : null;
   const recordCount = lastSyncRes[0]?.record_count || 0;
 
-  const firestore = getFirestore();
-  const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans')
+  const snapshot = await getLoansCollection(app.appId)
     .orderBy(app.sortField, 'asc').get();
   
   const overrides = await sql`

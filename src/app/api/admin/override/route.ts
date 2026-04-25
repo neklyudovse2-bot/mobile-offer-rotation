@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { sql } from '@/lib/db';
-import { getFirestore } from '@/lib/firebase';
+import { getLoansCollection } from '@/lib/firebase';
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
@@ -27,13 +27,10 @@ export async function POST(request: Request) {
        return NextResponse.json({ error: 'app_id is required' }, { status: 400 });
     }
 
-    let firestore;
-    try { firestore = getFirestore(); } catch(e) {}
-
     // 1. Обработка активности оффера
-    if (typeof is_active === 'boolean' && doc_id && firestore) {
+    if (typeof is_active === 'boolean' && doc_id) {
       console.log('[OVERRIDE] updating Firestore activity:', { doc_id, is_active });
-      const loanRef = firestore.collection(app_id).doc('ru').collection('loans').doc(doc_id);
+      const loanRef = getLoansCollection(app_id).doc(doc_id);
       await loanRef.update({ active: is_active });
     }
 

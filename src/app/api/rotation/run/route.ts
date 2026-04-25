@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { sql } from '@/lib/db';
-import { getFirestore } from '@/lib/firebase';
+import { getLoansCollection, getFirestore } from '@/lib/firebase';
 import { APP_MAPPING } from '@/config/mapping';
 
 export async function GET(request: Request) {
@@ -30,10 +30,7 @@ async function handleRequest(request: Request) {
       throw new Error(`Keitaro sync failed: ${JSON.stringify(errorData)}`);
     }
 
-    let firestore;
-    try { firestore = getFirestore(); } catch (e: any) { 
-        throw new Error(e.message);
-    }
+    const firestore = getFirestore();
 
     const results: any[] = [];
     const appsToProcess = appIdParam ? APP_MAPPING.filter(a => a.appId === appIdParam) : APP_MAPPING;
@@ -50,7 +47,7 @@ async function handleRequest(request: Request) {
       }
       const epcMap = new Map(epcStats.map((s: any) => [s.offer_slug, parseFloat(s.epc)]));
 
-      const loansRef = firestore.collection(app.appId).doc('ru').collection('loans');
+      const loansRef = getLoansCollection(app.appId);
       const snapshot = await loansRef.get();
       
       const offers = snapshot.docs.map(doc => {

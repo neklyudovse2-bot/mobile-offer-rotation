@@ -1,0 +1,156 @@
+=== ЗАЩИТА FIRESTORE: WHITELIST В КОДЕ ===
+
+Цель: добавить в код защиту чтобы случайные правки или опечатки не 
+могли тронуть чужие Firestore коллекции (которых там 30+).
+
+Что делаем:
+1. Обновляем src/lib/firebase.ts — добавляем функцию-обёртку 
+   getLoansCollection(appId) которая проверяет whitelist
+2. Заменяем 5 прямых обращений firestore.collection(...) на 
+   использование этой функции
+3. Боевая логика НЕ меняется, только обёртка
+
+После этого:
+- Любая попытка обратиться к коллекции с app_id не из APP_MAPPING 
+  будет кидать Error с понятным сообщением
+- Защита работает на уровне приложения (не Firebase IAM)
+- Простой rollback если что-то пойдёт не так
+
+======================================================================
+ШАГ 1: ЗАМЕНИТЬ src/lib/firebase.ts ЦЕЛИКОМ
+======================================================================
+
+Замени файл src/lib/firebase.ts на содержимое из архива (firebase.ts).
+
+Это полная замена. Старая функция getFirestore() сохранена и 
+работает как раньше — добавлены только новые функции 
+getLoansCollection() и isAllowedAppId().
+
+======================================================================
+ШАГ 2: ИЗМЕНИТЬ 5 ФАЙЛОВ С ПРЯМЫМИ ОБРАЩЕНИЯМИ
+======================================================================
+
+Файлы и нужные правки:
+
+---
+
+**Файл 1: src/app/admin/offers/[app_id]/page.tsx**
+
+Найти строку 34:
+  const snapshot = await firestore.collection(app.appId).doc('ru').collection('loans')
+
+Заменить на:
+  const snapshot = await getLoansCollection(app.appId)
+
+Также добавить импорт в начало файла:
+  import { getLoansCollection } from '@/lib/firebase';
+
+(если там уже есть `import { getFirestore } from '@/lib/firebase';` — 
+обнови его до `import { getFirestore, getLoansCollection } from '@/lib/firebase';`)
+
+---
+
+**Файл 2: src/app/admin/page.tsx**
+
+Найти строку 39:
+  const snapshotAll = await firestore.collection(app.appId).doc('ru').collection('loans').get();
+
+Заменить на:
+  const snapshotAll = await getLoansCollection(app.appId).get();
+
+Найти строку 54:
+  const snapshotTop = await firestore.collection(app.appId).doc('ru').collection('loans').orderBy(app.sortField, 'asc').limit(3).get();
+
+Заменить на:
+  const snapshotTop = await getLoansCollection(app.appId).orderBy(app.sortField, 'asc').limit(3).get();
+
+Добавить/обновить импорт getLoansCollection.
+
+---
+
+**Файл 3: src/app/api/admin/override/route.ts**
+
+Найти строку 36:
+  const loanRef = firestore.collection(app_id).doc('ru').collection('loans').doc(doc_id);
+
+Заменить на:
+  const loanRef = getLoansCollection(app_id).doc(doc_id);
+
+Добавить/обновить импорт getLoansCollection.
+
+---
+
+**Файл 4: src/app/api/rotation/run/route.ts**
+
+Найти строку 53:
+  const loansRef = firestore.collection(app.appId).doc('ru').collection('loans');
+
+Заменить на:
+  const loansRef = getLoansCollection(app.appId);
+
+Добавить/обновить импорт getLoansCollection.
+
+---
+
+**Файл 5: src/app/api/admin/export-firestore/route.ts**
+
+Найти место где firestore.collection(...) (если там есть):
+  const docs = await firestore.collection(app.appId).doc('ru').collection('loans').get();
+
+Заменить на:
+  const docs = await getLoansCollection(app.appId).get();
+
+Добавить/обновить импорт getLoansCollection.
+
+======================================================================
+ВАЖНО
+======================================================================
+
+- НЕ ТРОГАЙ ничего кроме указанных строк в этих 5 файлах
+- НЕ МЕНЯЙ логику вокруг этих строк
+- НЕ УДАЛЯЙ переменную firestore которая инициализируется выше — 
+  она может использоваться где-то ещё (например для прямых SDK 
+  операций, не для коллекций)
+- ЕСЛИ getLoansCollection вызывается без await getFirestore() сверху, 
+  это нормально — функция getLoansCollection сама вызывает 
+  getFirestore() внутри
+
+======================================================================
+ШАГ 3: ПРОВЕРКА КОМПИЛЯЦИИ
+======================================================================
+
+После всех правок выполни:
+
+  npm run build
+
+Должна успешно собраться без TypeScript ошибок.
+
+Если есть ошибки — пришли ТОЧНЫЙ текст ошибки.
+
+======================================================================
+ШАГ 4: ДЕПЛОЙ И ПРОВЕРКА
+======================================================================
+
+После успешной сборки — закомитить и пушнуть в main:
+
+  git add -A
+  git commit -m "Security: add whitelist protection for Firestore collections"
+  git push origin main
+
+После деплоя:
+
+1. Открой админку https://mobile-offer-rotation.vercel.app/admin
+2. Должна работать как раньше — карточки приложений, цифры, топ-3 оффера
+3. На любой карточке нажми "Пересчитать EPC" — должно работать
+4. Открой /admin/offers/ios-9 — должна показывать список офферов
+5. Открой endpoint экспорта 
+   https://mobile-offer-rotation.vercel.app/api/admin/export-firestore — 
+   должен скачаться JSON
+
+ЕСЛИ ВСЁ РАБОТАЕТ — пришли скрин дашборда и подтверди что 
+"Пересчитать EPC" сработал.
+
+ЕСЛИ ЧТО-ТО СЛОМАЛОСЬ — пришли точный текст ошибки. Откатить можно 
+через git revert или Vercel Rollback.
+
+ЕСЛИ ВОЗНИКЛИ ВОПРОСЫ — спроси ДО действий, не импровизируй.

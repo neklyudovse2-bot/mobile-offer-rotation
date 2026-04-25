@@ -1,0 +1,36 @@
+
+> mobile-offer-rotation@0.1.0 build
+> next build
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/openclaw/.openclaw/workspace-vitruvius/package-lock.json as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/openclaw/.openclaw/workspace-vitruvius/mobile-offer-rotation/package-lock.json
+
+▲ Next.js 16.2.4 (Turbopack)
+- Environments: .env.production.local, .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 1613ms
+  Running TypeScript ...
+  Finished TypeScript in 1145ms ...
+  Collecting page data using 9 workers ...
+Error: No database connection string was provided to `neon()`. Perhaps an environment variable has not been set?
+    at neon (.next/server/chunks/mobile-offer-rotation_src_lib_db_ts_136q~~7._.js:14:8522)
+    at module evaluation (.next/server/chunks/mobile-offer-rotation_src_lib_db_ts_136q~~7._.js:18:350)
+    at instantiateModule (.next/server/chunks/[turbopack]_runtime.js:853:9)
+    at getOrInstantiateModuleFromParent (.next/server/chunks/[turbopack]_runtime.js:877:12)
+    at Context.esmImport [as i] (.next/server/chunks/[turbopack]_runtime.js:281:20)
+    at module evaluation (.next/server/chunks/[root-of-the-server]__0o0ops1._.js:1:1144)
+    at instantiateModule (.next/server/chunks/[turbopack]_runtime.js:853:9)
+    at instantiateRuntimeModule (.next/server/chunks/[turbopack]_runtime.js:882:12)
+    at getOrInstantiateRuntimeModule (.next/server/chunks/[turbopack]_runtime.js:895:12)
+    at Object.m (.next/server/chunks/[turbopack]_runtime.js:898:18)
+
+> Build error occurred
+Error: Failed to collect page data for /api/postback/conversion
+    at ignore-listed frames {
+  type: 'Error'
+}

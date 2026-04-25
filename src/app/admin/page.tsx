@@ -2,7 +2,7 @@ import { isAdminAuthenticated } from '@/lib/auth';
 import Login from '@/components/Login';
 import { APP_MAPPING } from '@/config/mapping';
 import { sql } from '@/lib/db';
-import { getFirestore } from '@/lib/firebase';
+import { getLoansCollection } from '@/lib/firebase';
 import Link from 'next/link';
 import RecalculateButton from '@/components/RecalculateButton';
 import RecalculateAppButton from '@/components/RecalculateAppButton';
@@ -26,17 +26,15 @@ export default async function AdminPage() {
     : null;
   const recordCount = lastSyncRes[0]?.record_count || 0;
 
-  let firestore;
-  try { firestore = getFirestore(); } catch(e) {}
-
   const appsData = [];
 
   for (const app of APP_MAPPING) {
     let topOffers: Array<{slug: string, displayName: string, pos: number, epc: number, zone: 'pin' | 'auto' | 'default'}> = [];
     let metrics = { active: 0, hidden: 0, pinned: 0 };
 
-    if (firestore) {
-      const snapshotAll = await firestore.collection(app.appId).doc('ru').collection('loans').get();
+    try {
+      const collection = getLoansCollection(app.appId);
+      const snapshotAll = await collection.get();
       const overrides = await sql`SELECT offer_slug, manual_pin, auto_priority FROM offer_overrides WHERE app_id = ${app.appId}`;
       const epcStats = await sql`SELECT offer_slug, epc FROM global_epc_7d`;
       const epcMap = new Map(epcStats.map((s: any) => [s.offer_slug, parseFloat(s.epc)]));
@@ -51,7 +49,7 @@ export default async function AdminPage() {
         if (ov?.manual_pin !== null && ov?.manual_pin !== undefined) metrics.pinned++;
       });
 
-      const snapshotTop = await firestore.collection(app.appId).doc('ru').collection('loans').orderBy(app.sortField, 'asc').limit(3).get();
+      const snapshotTop = await collection.orderBy(app.sortField, 'asc').limit(3).get();
       topOffers = snapshotTop.docs.map(doc => {
         const data = doc.data();
         let slug = '';
@@ -69,6 +67,8 @@ export default async function AdminPage() {
           zone 
         };
       });
+    } catch(e) {
+      console.error(`Failed to fetch Firestore data for ${app.appId}:`, e);
     }
 
     appsData.push({ ...app, topOffers, metrics });
