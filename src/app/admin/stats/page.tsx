@@ -21,6 +21,7 @@ export default async function StatsPage() {
     : null;
   const recordCount = lastSyncRes[0]?.record_count || 0;
 
+  // Aggregated stats from latest sync
   const stats = await sql`
     SELECT 
       offer_slug,
@@ -34,39 +35,18 @@ export default async function StatsPage() {
     ORDER BY revenue DESC
   `;
 
-  const totalsRes = await sql`
-    SELECT 
-      SUM(clicks)::int as total_clicks,
-      SUM(conversions)::int as total_conversions,
-      SUM(revenue)::numeric as total_revenue,
-      COUNT(DISTINCT offer_slug)::int as total_offers
-    FROM keitaro_stats
-    WHERE synced_at = (SELECT MAX(synced_at) FROM keitaro_stats)
-  `;
-  const totals = totalsRes[0];
-
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white text-black font-sans">
       <AdminNav lastSyncAt={lastSyncAt} recordCount={recordCount} />
 
       <main className="max-w-[1200px] mx-auto px-6 py-12">
-        <div className="mb-10 text-black">
-          <h1 className="text-3xl font-semibold text-black tracking-tight mb-2">
+        <div className="mb-10">
+          <h1 className="text-3xl font-semibold tracking-tight mb-2 uppercase tracking-tighter">
             Статистика
           </h1>
           <p className="text-sm text-[#666]">
-            Агрегировано по всем приложениям · последние 7 дней
+            Агрегировано по всем приложениям · последние данные Keitaro
           </p>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 text-black">
-          <KpiCard label="Офферов" value={totals.total_offers || 0} />
-          <KpiCard label="Кликов" value={(totals.total_clicks || 0).toLocaleString('ru-RU')} />
-          <KpiCard label="Конверсий" value={totals.total_conversions || 0} />
-          <KpiCard 
-            label="Revenue" 
-            value={`${Math.round(totals.total_revenue || 0).toLocaleString('ru-RU')} ₽`} 
-          />
         </div>
 
         <AggregatedStatsTable rows={stats.map((s: any) => ({
@@ -77,19 +57,6 @@ export default async function StatsPage() {
           epc: parseFloat(s.epc),
         }))} />
       </main>
-    </div>
-  );
-}
-
-function KpiCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="border border-[#eaeaea] rounded-md p-5 bg-white">
-      <p className="text-xs text-[#666] uppercase tracking-wider mb-2">
-        {label}
-      </p>
-      <p className="text-2xl font-semibold text-black tabular-nums tracking-tight">
-        {value}
-      </p>
     </div>
   );
 }

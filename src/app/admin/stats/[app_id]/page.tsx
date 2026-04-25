@@ -29,6 +29,7 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
     : null;
   const recordCount = lastSyncRes[0]?.record_count || 0;
 
+  // Stats for this specific app (latest sync)
   const stats = await sql`
     SELECT 
       offer_slug,
@@ -43,61 +44,41 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
     ORDER BY revenue DESC
   `;
 
-  const totalsRes = await sql`
-    SELECT 
-      SUM(clicks)::int as total_clicks,
-      SUM(conversions)::int as total_conversions,
-      SUM(revenue)::numeric as total_revenue,
-      COUNT(DISTINCT offer_slug)::int as total_offers
-    FROM keitaro_stats
-    WHERE synced_at = (SELECT MAX(synced_at) FROM keitaro_stats)
-      AND app_name = ${app.name}
-  `;
-  const totals = totalsRes[0];
-
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white font-sans text-black">
       <AdminNav lastSyncAt={lastSyncAt} recordCount={recordCount} />
 
-      <main className="max-w-[1200px] mx-auto px-6 py-12 text-black">
+      <main className="max-w-[1200px] mx-auto px-6 py-12">
+        {/* Breadcrumbs */}
         <nav className="flex items-center gap-1.5 text-xs text-[#666] mb-4">
           <Link href="/admin/stats" className="hover:text-black transition-colors">
             Статистика
           </Link>
-          <ChevronRight className="w-3 h-3 text-black" />
+          <ChevronRight className="w-3 h-3 text-[#eaeaea]" />
           <span className="text-black">{app.name}</span>
         </nav>
 
+        {/* Hero */}
         <div className="mb-10 flex items-end justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-semibold text-black tracking-tight">
+              <h1 className="text-3xl font-semibold tracking-tight uppercase tracking-tighter">
                 {app.name}
               </h1>
-              <span className="text-sm text-[#666] tabular-nums">
+              <span className="text-sm text-[#666] font-mono">
                 {app.appId}
               </span>
             </div>
             <p className="text-sm text-[#666]">
-              Статистика за последние 7 дней
+              Детальная статистика из Keitaro
             </p>
           </div>
           <Link 
             href={`/admin/offers/${app.appId}`}
-            className="text-sm text-[#666] hover:text-black transition-colors"
+            className="text-sm text-[#666] hover:text-black transition-colors font-medium border-b border-transparent hover:border-black"
           >
             Открыть настройки →
           </Link>
-        </div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10 text-black">
-          <KpiCard label="Офферов" value={totals.total_offers || 0} />
-          <KpiCard label="Кликов" value={(totals.total_clicks || 0).toLocaleString('ru-RU')} />
-          <KpiCard label="Конверсий" value={totals.total_conversions || 0} />
-          <KpiCard 
-            label="Revenue" 
-            value={`${Math.round(totals.total_revenue || 0).toLocaleString('ru-RU')} ₽`} 
-          />
         </div>
 
         <AggregatedStatsTable rows={stats.map((s: any) => ({
@@ -108,19 +89,6 @@ export default async function AppStatsPage({ params }: { params: Promise<{ app_i
           epc: parseFloat(s.epc),
         }))} />
       </main>
-    </div>
-  );
-}
-
-function KpiCard({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="border border-[#eaeaea] rounded-md p-5 bg-white">
-      <p className="text-xs text-[#666] uppercase tracking-wider mb-2">
-        {label}
-      </p>
-      <p className="text-2xl font-semibold text-black tabular-nums tracking-tight text-black">
-        {value}
-      </p>
     </div>
   );
 }
