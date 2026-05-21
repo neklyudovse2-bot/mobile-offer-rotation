@@ -16,6 +16,9 @@ export default function AdminNav({ lastSyncAt, recordCount }: Props) {
     if (path === '/admin') {
       return pathname === '/admin' || pathname.startsWith('/admin/offers');
     }
+    if (path === '/admin/catalog') {
+      return pathname.startsWith('/admin/catalog');
+    }
     if (path === '/admin/stats') {
       return pathname.startsWith('/admin/stats');
     }
@@ -50,6 +53,12 @@ export default function AdminNav({ lastSyncAt, recordCount }: Props) {
             <Link href="/admin" className={tabClass(isActive('/admin'))}>
               Приложения
               {isActive('/admin') && (
+                <span className="absolute bottom-0 left-0 right-0 h-px bg-black" />
+              )}
+            </Link>
+            <Link href="/admin/catalog" className={tabClass(isActive('/admin/catalog'))}>
+              Каталог
+              {isActive('/admin/catalog') && (
                 <span className="absolute bottom-0 left-0 right-0 h-px bg-black" />
               )}
             </Link>

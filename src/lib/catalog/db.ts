@@ -17,7 +17,6 @@
 import { neon, type NeonQueryFunction } from '@neondatabase/serverless';
 import type { CatalogOffer, CatalogPlacement } from './types';
 
-// Сырые строки из БД — до маппинга в доменные типы.
 type CatalogOfferRow = {
  slug: string;
  title: string;
@@ -44,7 +43,6 @@ function getSql(): NeonQueryFunction<false, false> {
  if (!url) {
  throw new Error('MOBILE_ROTATION_DB_URL is not set');
  }
- // arrayMode: false, fullResults: false — возвращает массив объектов {col: value}.
  _sql = neon(url, { arrayMode: false, fullResults: false });
  return _sql;
 }
@@ -86,7 +84,7 @@ export async function listPlacementsByApp(appId: string): Promise<CatalogPlaceme
  return rows.map(mapPlacementRow);
 }
 
-/** Получить все раскладки одного офера (по всем приложениям). */
+/** Получить все раскладки одного оффера (по всем приложениям). */
 export async function listPlacementsByOffer(slug: string): Promise<CatalogPlacement[]> {
  const sql = getSql();
  const rows = (await sql`
@@ -98,12 +96,39 @@ export async function listPlacementsByOffer(slug: string): Promise<CatalogPlacem
  return rows.map(mapPlacementRow);
 }
 
+/**
+ * Подсчёт количества активных раскладок по каждому приложению.
+ * Возвращает Map<app_id, count>. Если у приложения нет раскладок —
+ * его не будет в Map (на стороне UI трактуется как 0).
+ */
+export async function countPlacementsByApps(): Promise<Map<string, number>> {
+ const sql = getSql();
+ type Row = { app_id: string; cnt: number | string };
+ const rows = (await sql`
+ SELECT app_id, COUNT(*)::int AS cnt
+ FROM catalog_offer_placements
+ WHERE enabled = TRUE
+ GROUP BY app_id
+ `) as Row[];
+ const result = new Map<string, number>();
+ for (const r of rows) {
+ result.set(r.app_id, Number(r.cnt));
+ }
+ return result;
+}
+
+/** Получить общее число офферов в каталоге. */
+export async function getCatalogOffersCount(): Promise<number> {
+ const sql = getSql();
+ type Row = { cnt: number | string };
+ const rows = (await sql`
+ SELECT COUNT(*)::int AS cnt FROM catalog_offers
+ `) as Row[];
+ return rows.length ? Number(rows[0].cnt) : 0;
+}
+
 // --- Запись (только UPSERT / UPDATE, никаких DELETE) ---
 
-/**
- * Создать или обновить запись оффера в каталоге.
- * Использует UPSERT по slug.
- */
 export async function upsertCatalogOffer(
  slug: string,
  title: string,
@@ -120,10 +145,6 @@ export async function upsertCatalogOffer(
  `;
 }
 
-/**
- * Создать или обновить раскладку оффера в приложении.
- * Использует UPSERT по уникальной паре (slug, app_id).
- */
 export async function upsertPlacement(
  slug: string,
  appId: string,
@@ -145,10 +166,6 @@ export async function upsertPlacement(
  `;
 }
 
-/**
- * Привязать раскладку к существующему документу Firestore.
- * Не меняет URL и enabled — только firestore_doc_id.
- */
 export async function linkPlacementToFirestoreDoc(
  slug: string,
  appId: string,
