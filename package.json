@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
+    "@vercel/blob": "^2.4.0",
     "firebase-admin": "^13.8.0",
     "lucide-react": "^1.8.0",
     "luxon": "^3.7.2",
