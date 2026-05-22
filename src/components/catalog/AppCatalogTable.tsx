@@ -6,7 +6,7 @@ import { useState } from 'react';
  * Таблица каталога для одного приложения.
  *
  * На Этапе 4.2 — только просмотр + заглушки на кнопках.
- * На Этапе 4.3 будут добавлены модалки "Разложить"/"Редактировать",
+ * На Этапе 4.3 будут добавлены модалки "Добавить"/"Редактировать",
  * черновик изменений и кнопка "Применить".
  */
 
@@ -15,8 +15,8 @@ export type CatalogRow = {
   title: string;
   image_url: string | null;
   status:
-    | 'placed'           // Разложен через каталог, активен в Firestore
-    | 'not_placed'       // Не разложен (в каталоге нет связки с этим приложением)
+    | 'placed'           // Добавлен через каталог, активен в Firestore
+    | 'not_placed'       // Не добавлен (в каталоге нет связки с этим приложением)
     | 'hidden_in_catalog' // В каталоге enabled=false (на будущее, сейчас не используется)
     | 'outside_catalog'; // Документ в Firestore есть, но каталог им не управляет
   url: string | null;
@@ -188,7 +188,7 @@ function StatusBadge({ row }: { row: CatalogRow }) {
     return (
       <span className={`${baseClass} text-black`}>
         <span className="w-1.5 h-1.5 rounded-full bg-black" />
-        Разложен
+        Добавлен
         {row.is_duplicate && (
           <span
             className="ml-1 text-[#a06000]"
@@ -204,7 +204,7 @@ function StatusBadge({ row }: { row: CatalogRow }) {
     return (
       <span className={`${baseClass} text-[#999]`}>
         <span className="w-1.5 h-1.5 rounded-full bg-[#ccc]" />
-        Не разложен
+        Не добавлен
       </span>
     );
   }
@@ -268,7 +268,7 @@ function ActionButton({
         ? 'Редактировать'
         : row.status === 'outside_catalog'
         ? 'Связать'
-        : 'Разложить';
+        : 'Добавить';
     alert(
       `Скоро будет: «${verb}» для ${row.title} в ${appName}.\n` +
         `Этап 4.3 — действия каталога.`
@@ -281,7 +281,7 @@ function ActionButton({
   } else if (row.status === 'outside_catalog') {
     label = 'Связать';
   } else {
-    label = 'Разложить';
+    label = 'Добавить';
   }
 
   return (

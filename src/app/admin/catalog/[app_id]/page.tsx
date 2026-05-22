@@ -24,7 +24,7 @@ import { notFound } from 'next/navigation';
  * есть в Firestore этого приложения, но не входят в каталог.
  *
  * На этом этапе (4.2) — ТОЛЬКО ПРОСМОТР. Кнопки действий
- * («Разложить», «Редактировать») — заглушки. Реальная запись
+ * («Добавить», «Редактировать») — заглушки. Реальная запись
  * в Firestore будет добавлена в Этапе 4.3.
  */
 
@@ -193,7 +193,7 @@ export default async function CatalogAppPage({
           </h1>
           <p className="mt-2 text-sm text-[#666]">
             <span className="text-black font-medium">{placedCount}</span>{' '}
-            разложено · {notPlacedCount} не разложено
+            добавлено · {notPlacedCount} не добавлено
           </p>
         </div>
 
