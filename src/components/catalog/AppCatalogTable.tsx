@@ -254,7 +254,7 @@ function DraftPanel({
 }) {
  const hasDrafts = draftsCount > 0;
  return (
- <div className="flex items-center justify-end gap-3 -mb-6">
+ <div className="flex items-center justify-end gap-3 mb-4">
  {hasDrafts && (
  <span className="text-sm text-[#666]">
  Изменений: <span className="text-black font-medium">{draftsCount}</span>
